@@ -150,5 +150,5 @@ async def test_pipeline_integration_failure_propagation(
                         break
 
         assert error_event is not None
-        assert "Processing failed" in error_event["message"]
+        assert "Falha no processamento" in error_event["message"]
         assert "LLM Agent analysis timeout" in error_event["message"]

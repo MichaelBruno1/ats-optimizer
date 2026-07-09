@@ -35,6 +35,10 @@
 
 html { scroll-behavior: smooth; }
 
+[hidden] {
+  display: none !important;
+}
+
 body {
   font-family: 'Inter', sans-serif;
   background-color: var(--pastel-bg);

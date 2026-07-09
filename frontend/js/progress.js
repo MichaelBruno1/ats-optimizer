@@ -13,19 +13,19 @@ import api from './api.js';
 /* ------------------------------------------------------------------ */
 const STEP_ORDER = [
   'extract',
-  'analyze_resume',
-  'analyze_jobs',
-  'optimize',
-  'generate_pdf',
+  'resume_analysis',
+  'job_analysis',
+  'optimization',
+  'pdf_generation',
 ];
 
 /** Map backend step identifiers to checklist element IDs */
 const STEP_ID_MAP = {
-  extract:        'check-extract',
-  analyze_resume: 'check-analyze-resume',
-  analyze_jobs:   'check-analyze-jobs',
-  optimize:       'check-optimize',
-  generate_pdf:   'check-generate-pdf',
+  extract:         'check-extract',
+  resume_analysis: 'check-analyze-resume',
+  job_analysis:    'check-analyze-jobs',
+  optimization:    'check-optimize',
+  pdf_generation:  'check-generate-pdf',
 };
 
 /* ------------------------------------------------------------------ */
@@ -127,9 +127,18 @@ function resetProgressUI() {
     if (icon) icon.textContent = 'radio_button_unchecked';
   });
 
-  // Activate first step
-  const firstEl = document.getElementById(STEP_ID_MAP[STEP_ORDER[0]]);
-  if (firstEl) firstEl.classList.add('active-step');
+  // Mark extract as completed immediately since it was done in POST /analyze
+  completedSteps.add('extract');
+  const extractEl = document.getElementById(STEP_ID_MAP['extract']);
+  if (extractEl) {
+    extractEl.classList.add('done');
+    const icon = extractEl.querySelector('.check-icon');
+    if (icon) icon.textContent = 'check_circle';
+  }
+
+  // Activate the next step (resume_analysis)
+  const nextEl = document.getElementById(STEP_ID_MAP['resume_analysis']);
+  if (nextEl) nextEl.classList.add('active-step');
 
   // Hide error card
   const errCard = document.getElementById('processing-error');

@@ -126,7 +126,7 @@ async def _run_pipeline(
         # ── Stage 1: Resume Analysis ──────────────────────────────────────────
         await _publish(
             queue, "progress",
-            {"step": "resume_analysis", "progress": 5, "message": "Analyzing resume…"}
+            {"step": "resume_analysis", "progress": 5, "message": "Analisando currículo..."}
         )
 
         resume_agent = ResumeAnalystAgent()
@@ -134,7 +134,7 @@ async def _run_pipeline(
 
         await _publish(
             queue, "progress",
-            {"step": "resume_analysis", "progress": 20, "message": "Resume analysis complete."}
+            {"step": "resume_analysis", "progress": 20, "message": "Análise de currículo concluída."}
         )
 
         # ── Stage 2: Job Analysis (concurrent) ───────────────────────────────
@@ -144,7 +144,7 @@ async def _run_pipeline(
             {
                 "step": "job_analysis",
                 "progress": 25,
-                "message": f"Analyzing {total_jobs} job description(s)…",
+                "message": f"Analisando {total_jobs} descrição(ões) de vaga...",
             }
         )
 
@@ -158,16 +158,17 @@ async def _run_pipeline(
 
         await _publish(
             queue, "progress",
-            {"step": "job_analysis", "progress": 50, "message": "Job analyses complete."}
+            {"step": "job_analysis", "progress": 50, "message": "Análise de vaga(s) concluída."}
         )
 
         # ── Stage 3: Optimization ─────────────────────────────────────────────
+        opt_mode_desc = "modo unificado" if output_mode == "single" else "modo por vaga"
         await _publish(
             queue, "progress",
             {
                 "step": "optimization",
                 "progress": 55,
-                "message": f"Optimizing resume ({output_mode} mode)…",
+                "message": f"Otimizando currículo ({opt_mode_desc})...",
             }
         )
 
@@ -194,13 +195,13 @@ async def _run_pipeline(
 
         await _publish(
             queue, "progress",
-            {"step": "optimization", "progress": 75, "message": "Optimization complete."}
+            {"step": "optimization", "progress": 75, "message": "Otimização concluída."}
         )
 
         # ── Stage 4: PDF Generation ────────────────────────────────────────────
         await _publish(
             queue, "progress",
-            {"step": "pdf_generation", "progress": 80, "message": "Generating PDF(s)…"}
+            {"step": "pdf_generation", "progress": 80, "message": "Gerando PDF(s)..."}
         )
 
         optimization_results: list[OptimizationResult] = []
@@ -232,7 +233,7 @@ async def _run_pipeline(
 
         await _publish(
             queue, "progress",
-            {"step": "pdf_generation", "progress": 95, "message": "PDF(s) ready."}
+            {"step": "pdf_generation", "progress": 95, "message": "PDF(s) gerados com sucesso."}
         )
 
         # ── Build final response payload ──────────────────────────────────────
@@ -254,7 +255,7 @@ async def _run_pipeline(
             queue, "complete",
             {
                 "progress": 100,
-                "message": "Analysis complete. Your optimized resume is ready.",
+                "message": "Processamento concluído. Seu currículo otimizado está pronto!",
                 "session_id": session_id,
                 "result": response.model_dump(),
             }
@@ -264,7 +265,7 @@ async def _run_pipeline(
         logger.exception("Pipeline failed for session %s", session_id)
         await _publish(
             queue, "error",
-            {"message": f"Processing failed: {exc}"}
+            {"message": f"Falha no processamento: {exc}"}
         )
 
     finally:
