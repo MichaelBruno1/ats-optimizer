@@ -89,6 +89,14 @@ class TestConfig:
         assert "single" in body["output_modes"]
         assert "per_job" in body["output_modes"]
 
+    def test_config_contains_llm_timeout(self) -> None:
+        """Config response should include llm_timeout as a float/int."""
+        response = client.get("/api/v1/config")
+        body = response.json()
+        assert "llm_timeout" in body
+        assert isinstance(body["llm_timeout"], (int, float))
+        assert body["llm_timeout"] > 0
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Analyze endpoint — validation errors (no LLM needed)

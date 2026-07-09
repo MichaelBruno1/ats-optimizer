@@ -503,4 +503,5 @@ async def config() -> dict:
         "accepted_formats": [".pdf", ".docx", ".txt"],
         "max_file_size_mb": settings.max_file_size_mb,
         "output_modes": ["single", "per_job"],
+        "llm_timeout": settings.llm_timeout,
     }

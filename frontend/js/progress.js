@@ -166,7 +166,7 @@ export function showProcessingError(msg) {
  * @param {Function} onError    - called with error message string
  * @returns {void}
  */
-export function startProgress(sessionId, onComplete, onError) {
+export function startProgress(sessionId, onComplete, onError, timeoutSeconds = 120) {
   // Close any previous connection
   stopProgress();
   resetProgressUI();
@@ -179,10 +179,10 @@ export function startProgress(sessionId, onComplete, onError) {
       if (hasFinished) return;
       hasFinished = true;
       stopProgress();
-      const timeoutMsg = 'O servidor demorou muito para responder (tempo limite de 120s excedido). Tente novamente.';
+      const timeoutMsg = `O servidor demorou muito para responder (tempo limite de ${timeoutSeconds}s excedido). Tente novamente.`;
       showProcessingError(timeoutMsg);
       onError(timeoutMsg);
-    }, 120000); // 120 seconds
+    }, timeoutSeconds * 1000); // dynamic timeout in ms
   }
 
   // Set initial inactivity timer

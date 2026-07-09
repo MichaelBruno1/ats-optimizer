@@ -237,11 +237,16 @@ async function handleAnalyze() {
     state.analysisResults = response;
 
     if (state.sessionId) {
-      // Connect SSE progress stream
+      // Connect SSE progress stream with dynamic timeout
+      const timeoutLimit = (state.config && typeof state.config.llm_timeout === 'number')
+        ? state.config.llm_timeout
+        : 120;
+
       startProgress(
         state.sessionId,
         handleComplete,   // onComplete
         handleError,      // onError
+        timeoutLimit,     // Dynamic timeout in seconds
       );
     } else {
       // Backend returned result synchronously (no SSE session)
