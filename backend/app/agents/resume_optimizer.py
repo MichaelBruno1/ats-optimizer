@@ -175,7 +175,7 @@ class ResumeOptimizerAgent(BaseAgent):
             f"Mode: {mode}\n\n"
             f"{target_description}\n\n"
             f"=== ORIGINAL RESUME TEXT (ground truth — do not invent beyond this) ===\n"
-            f"{original_resume_text[:6000]}\n\n"
+            f"{original_resume_text[:3000]}\n\n"
             f"=== STRUCTURED RESUME ANALYSIS ===\n"
             f"{resume_analysis_json}\n\n"
             f"=== JOB ANALYSIS (target requirements) ===\n"

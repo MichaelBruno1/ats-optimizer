@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     llm_api_key: str = Field(default="", alias="LLM_API_KEY")
     llm_api_base: str = Field(default="", alias="LLM_API_BASE")
     llm_temperature: float = Field(default=0.3, alias="LLM_TEMPERATURE")
-    llm_max_tokens: int = Field(default=4096, alias="LLM_MAX_TOKENS")
+    llm_max_tokens: int = Field(default=2000, alias="LLM_MAX_TOKENS")
 
     # ── App ───────────────────────────────────────────────────────────────────
     max_file_size_mb: int = Field(default=5, alias="MAX_FILE_SIZE_MB")
