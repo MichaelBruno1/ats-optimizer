@@ -194,3 +194,39 @@ async def test_job_analyst_truncated_json_repair(
     # The truncated field "gap_analysis" should be partially recovered up to the truncation point
     assert "Embora o JD seja detalhado" in result.gap_analysis
 
+
+@pytest.mark.asyncio
+@patch("litellm.acompletion")
+async def test_base_agent_self_healing_retry(
+    mock_acompletion: MagicMock,
+    sample_job_analysis: JobAnalysis
+) -> None:
+    """Test that base agent automatically retries with lower max_tokens upon failure."""
+    # First call raises BadRequestError, second call succeeds
+    mock_acompletion.side_effect = [
+        Exception("Context size has been exceeded (400)"),
+        mock_llm_response(sample_job_analysis.model_dump_json())
+    ]
+
+    job_input = JobInput(
+        title="Python Developer",
+        company="Tech Solutions",
+        description="FastAPI role"
+    )
+
+    agent = JobAnalystAgent(max_tokens=2000)
+    result = await agent.analyze(job_input, job_index=0)
+
+    # It should successfully recover and return JobAnalysis
+    assert isinstance(result, JobAnalysis)
+    assert result.job_index == 0
+    assert result.title == "Desenvolvedor Backend Sênior"
+    
+    # Verify that acompletion was called twice
+    assert mock_acompletion.call_count == 2
+    # Verify that the second call was made with max_tokens reduced (2000 * 0.65 = 1300)
+    args_call1, kwargs_call1 = mock_acompletion.call_args_list[0]
+    args_call2, kwargs_call2 = mock_acompletion.call_args_list[1]
+    assert kwargs_call1["max_tokens"] == 2000
+    assert kwargs_call2["max_tokens"] == 1300
+

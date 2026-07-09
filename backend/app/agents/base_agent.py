@@ -170,17 +170,33 @@ class BaseAgent:
             self.max_tokens,
         )
 
-        try:
-            response = await litellm.acompletion(
-                model=self.model,
-                messages=messages,
-                temperature=self.temperature,
-                max_tokens=self.max_tokens,
-                **extra_kwargs,
-            )
-        except Exception as exc:
-            logger.exception("LLM call failed for %s", self.__class__.__name__)
-            raise AgentError(f"LLM invocation failed: {exc}") from exc
+        current_max_tokens = self.max_tokens
+        response = None
+
+        for attempt in range(3):
+            try:
+                response = await litellm.acompletion(
+                    model=self.model,
+                    messages=messages,
+                    temperature=self.temperature,
+                    max_tokens=current_max_tokens,
+                    **extra_kwargs,
+                )
+                break  # Success
+            except Exception as exc:
+                new_tokens = int(current_max_tokens * 0.65)
+                if new_tokens >= 800 and attempt < 2:
+                    logger.warning(
+                        "LLM call failed for %s with max_tokens=%d. Retrying with reduced max_tokens=%d. Error: %s",
+                        self.__class__.__name__,
+                        current_max_tokens,
+                        new_tokens,
+                        str(exc)
+                    )
+                    current_max_tokens = new_tokens
+                else:
+                    logger.exception("LLM call failed for %s after all retry attempts", self.__class__.__name__)
+                    raise AgentError(f"LLM invocation failed: {exc}") from exc
 
         raw_content: str = response.choices[0].message.content or ""  # type: ignore[union-attr]
         logger.debug(
