@@ -294,3 +294,38 @@ async def test_base_agent_empty_response_retry(mock_acompletion: MagicMock) -> N
     assert kwargs_call1["max_tokens"] == 2000
     assert kwargs_call2["max_tokens"] == 1300
 
+
+@pytest.mark.asyncio
+@patch("litellm.acompletion")
+async def test_base_agent_dynamic_prompt_truncation_on_retry(mock_acompletion: MagicMock) -> None:
+    """Test that dynamic prompt truncation is applied to long messages on retry."""
+    # First response is empty, second is valid
+    first_res = mock_llm_response("")
+    second_res = mock_llm_response(
+        json.dumps({
+            "candidate_name": "Test Candidate",
+            "ats_readability_score": 85,
+            "skills": ["Python"]
+        })
+    )
+    mock_acompletion.side_effect = [first_res, second_res]
+
+    agent = ResumeAnalystAgent(max_tokens=2000)
+    # 4000 characters (exceeds 3000 chars limit for retry truncation)
+    long_raw_resume = "X" * 4000
+    result = await agent.analyze(long_raw_resume)
+
+    assert isinstance(result, ResumeAnalysis)
+    assert mock_acompletion.call_count == 2
+
+    # Verify the first call contains the original 4000 characters of the resume
+    args_call1, kwargs_call1 = mock_acompletion.call_args_list[0]
+    first_content = kwargs_call1["messages"][1]["content"]
+    assert "X" * 4000 in first_content
+
+    # Verify the second call prompt was truncated
+    args_call2, kwargs_call2 = mock_acompletion.call_args_list[1]
+    truncated_content = kwargs_call2["messages"][1]["content"]
+    assert "X" * 4000 not in truncated_content
+    assert "truncado" in truncated_content
+

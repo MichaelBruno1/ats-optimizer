@@ -196,7 +196,7 @@ class BaseAgent:
             except Exception as exc:
                 if attempt < 2:
                     exc_str = str(exc).lower()
-                    # If it's a context size or empty response issue, reduce max_tokens
+                    # If it's a context size or empty response issue, reduce max_tokens and truncate user message
                     if "context size" in exc_str or "400" in exc_str or "bad request" in exc_str or "empty response" in exc_str:
                         new_tokens = int(current_max_tokens * 0.65)
                         if new_tokens >= 800:
@@ -207,6 +207,23 @@ class BaseAgent:
                                 str(exc)
                             )
                             current_max_tokens = new_tokens
+                            
+                            # Truncate user message if it is long
+                            user_content = messages[1]["content"]
+                            if len(user_content) > 3000:
+                                new_len = int(len(user_content) * 0.65)
+                                logger.warning(
+                                    "Truncating user prompt in %s from %d to %d chars to fit context window.",
+                                    self.__class__.__name__,
+                                    len(user_content),
+                                    new_len
+                                )
+                                # Copy messages structure to avoid mutating previous call logs references
+                                messages = [m.copy() for m in messages]
+                                messages[1]["content"] = (
+                                    user_content[:new_len]
+                                    + "\n\n... [Conteúdo truncado para ajuste dinâmico de contexto] ..."
+                                )
                             continue
 
                     # Exponential backoff delay with jitter
