@@ -5,8 +5,8 @@
  * char counters, and a public API consumed by app.js.
  */
 
-const MAX_JOBS = 10;
-const MAX_CHARS = 5000;
+const MAX_JOBS = 3;
+const MAX_CHARS = 4000;
 
 /* ------------------------------------------------------------------ */
 /*  Private state                                                       */

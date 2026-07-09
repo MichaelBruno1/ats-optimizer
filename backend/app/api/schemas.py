@@ -41,7 +41,7 @@ class JobInput(SafeBaseModel):
 
     title: str
     company: Optional[str] = None
-    description: str = Field(..., max_length=5000)
+    description: str = Field(..., max_length=4000)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

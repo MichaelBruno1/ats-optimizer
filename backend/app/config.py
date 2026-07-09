@@ -22,7 +22,7 @@ class Settings(BaseSettings):
 
     # ── App ───────────────────────────────────────────────────────────────────
     max_file_size_mb: int = Field(default=5, alias="MAX_FILE_SIZE_MB")
-    max_jobs: int = Field(default=10, alias="MAX_JOBS")
+    max_jobs: int = Field(default=3, alias="MAX_JOBS")
     temp_dir: str = Field(default="/tmp/ats_optimizer", alias="TEMP_DIR")
     temp_cleanup_minutes: int = Field(default=30, alias="TEMP_CLEANUP_MINUTES")
     cors_origins: str = Field(
