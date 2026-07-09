@@ -41,21 +41,14 @@ O fallback que tenta extrair JSON de blocos de código markdown utiliza regex, q
 
 ---
 
-### 🟡 ERR-05 — Sem validação programática de alucinação do otimizador
-**Arquivo:** `backend/app/agents/resume_optimizer.py`
-A regra de segurança de que o otimizador não deve inventar habilidades é apenas instrução no prompt. Não há verificação programática comparando skills do output com skills do input.
-**Correção sugerida:** Implementar uma comparação pós-processamento que detecte habilidades adicionadas que não existem no currículo original.
-
----
-
-### 🟡 ERR-06 — Continuação de execução após falha no frontend
+### 🟡 ERR-05 — Continuação de execução após falha no frontend
 **Arquivo:** `frontend/js/app.js`
 Na função `submitForOptimization()`, se a chamada API falhar dentro do `catch`, o fluxo pode continuar executando linhas subsequentes que acessam `data.session_id` (indefinido).
 **Correção sugerida:** Garantir que o `return` dentro do `catch` encerre a função completamente.
 
 ---
 
-### 🟡 ERR-07 — Sem timeout de inatividade no SSE do frontend
+### 🟡 ERR-06 — Sem timeout de inatividade no SSE do frontend
 **Arquivo:** `frontend/js/progress.js`
 Se o servidor parar de enviar eventos (pipeline travou), o cliente aguarda indefinidamente sem feedback.
 **Correção sugerida:** Implementar um timer de inatividade (ex: 120s sem eventos) que exiba um aviso ao usuário.
@@ -64,28 +57,7 @@ Se o servidor parar de enviar eventos (pipeline travou), o cliente aguarda indef
 
 ## 2. Performance
 
-### 🟠 PERF-01 — Jinja2 Environment recriado a cada chamada
-**Arquivo:** `backend/app/services/pdf_generator.py`
-O `Environment` e `FileSystemLoader` do Jinja2 são instanciados a cada invocação de `generate_pdf()`. Devem ser singletons no nível do módulo.
-**Correção sugerida:** Mover a instanciação para o nível do módulo como constantes.
-
----
-
-### 🟠 PERF-02 — Arquivo de prompt relido do disco a cada chamada
-**Arquivo:** `backend/app/agents/base_agent.py`
-Cada invocação de agente relê o arquivo `.txt` do prompt do sistema de arquivos. Deveria ser cacheado em memória.
-**Correção sugerida:** Utilizar `functools.lru_cache` ou carregar no `__init__` e armazenar como atributo da instância.
-
----
-
-### 🟡 PERF-03 — CSS render-blocking com @import de Google Fonts
-**Arquivo:** `frontend/css/style.css`
-O `@import url(...)` para Google Fonts bloqueia a renderização da página.
-**Correção sugerida:** Mover o carregamento de fontes para um `<link rel="preconnect">` + `<link rel="stylesheet">` no HTML.
-
----
-
-### 🟡 PERF-04 — CSS não minificado (1323 linhas)
+### 🟡 PERF-01 — CSS não minificado (1323 linhas)
 **Arquivo:** `frontend/css/style.css`
 O CSS é servido como arquivo único e não minificado. Contém CSS morto (ex: classe `.ats-badge` removida do template mas ainda definida no stylesheet).
 **Correção sugerida:** Remover CSS não utilizado e considerar minificação no processo de build.
@@ -185,23 +157,7 @@ Nenhuma política de reinicialização está configurada. Se o container falhar,
 
 ---
 
-## 5. Performance Adicional
-
-### 🟠 PERF-05 — Parsing de documentos bloqueia o event loop
-**Arquivo:** `backend/app/services/document_parser.py`
-As funções `_extract_from_pdf` e `_extract_from_docx` são chamadas de forma síncrona dentro de uma função `async`. Para PDFs e DOCXs grandes, isso bloqueia o event loop do asyncio, impedindo o processamento de outras requisições.
-**Correção sugerida:** Executar o parsing dentro de `loop.run_in_executor()`.
-
----
-
-### 🟠 PERF-06 — Sem controle de concorrência nas chamadas LLM
-**Arquivo:** `backend/app/agents/resume_optimizer.py`
-No modo `per_job`, todas as otimizações rodam via `asyncio.gather` sem semáforo. Com 10 vagas e múltiplas sessões simultâneas, dezenas de chamadas LLM concorrentes podem saturar a API do provedor.
-**Correção sugerida:** Utilizar `asyncio.Semaphore` para limitar chamadas concorrentes.
-
----
-
-## 6. Código Morto e Dependências Obsoletas
+## 5. Código Morto e Dependências Obsoletas
 
 ### 🟡 DEAD-01 — Dependency Injection não utilizada
 **Arquivo:** `backend/app/api/dependencies.py`
@@ -224,7 +180,7 @@ O Materialize CSS (v1.0.0, última release em 2018) está depreciado. O CSS do p
 
 ---
 
-## 7. Cobertura de Testes — Mapa Detalhado
+## 6. Cobertura de Testes — Mapa Detalhado
 
 | Módulo | Cobertura | Nota |
 |---|---|---|
@@ -240,7 +196,7 @@ O Materialize CSS (v1.0.0, última release em 2018) está depreciado. O CSS do p
 | `config.py` | Configs e definições de aliases | ✅ B |
 | `main.py` | Fábrica do app e Uvicorn setup | ✅ B |
 
-**Cobertura estimada total: ~90-95% do backend (51 testes passando).**
+**Cobertura estimada total: ~90-95% do backend (54 testes passando).**
 
 ---
 
@@ -249,7 +205,7 @@ O Materialize CSS (v1.0.0, última release em 2018) está depreciado. O CSS do p
 | Severidade | Quantidade |
 |---|---|
 | 🔴 Crítico | 0 |
-| 🟠 Alto | 4 |
-| 🟡 Médio | 10 |
+| 🟠 Alto | 0 |
+| 🟡 Médio | 8 |
 | 🟢 Baixo | 4 |
-| **Total** | **18** |
+| **Total** | **12** |

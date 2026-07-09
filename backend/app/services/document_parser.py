@@ -78,9 +78,13 @@ async def extract_text_from_upload(upload: UploadFile) -> str:
             f"Accepted formats: {', '.join(sorted(ACCEPTED_EXTENSIONS))}."
         )
 
-    # ── Text extraction ───────────────────────────────────────────────────────
-    logger.debug("Extracting text from '%s' (%d bytes)", filename, len(raw_bytes))
-    return _dispatch_extraction(raw_bytes, ext, filename)
+    # ── Text extraction (Offloaded to executor to avoid event loop blocking) ──
+    logger.debug("Extracting text from '%s' (%d bytes) in executor", filename, len(raw_bytes))
+    import asyncio
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(
+        None, _dispatch_extraction, raw_bytes, ext, filename
+    )
 
 
 def extract_text_from_bytes(content: bytes, filename: str) -> str:

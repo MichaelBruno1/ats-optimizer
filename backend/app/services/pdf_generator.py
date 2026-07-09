@@ -20,6 +20,12 @@ logger = logging.getLogger(__name__)
 _TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
 _TEMPLATE_NAME = "resume_template.html"
 
+# Cached Jinja2 environment (singleton)
+_JINJA_ENV = Environment(
+    loader=FileSystemLoader(str(_TEMPLATES_DIR)),
+    autoescape=select_autoescape(["html"]),
+)
+
 
 def _detect_language(text: str) -> str:
     """Detect if the text is Portuguese, Spanish, or English based on common keywords."""
@@ -115,12 +121,8 @@ def generate_pdf(
     }
 
     # ── Jinja2 rendering ──────────────────────────────────────────────────────
-    logger.debug("Loading Jinja2 template from: %s", _TEMPLATES_DIR)
-    env = Environment(
-        loader=FileSystemLoader(str(_TEMPLATES_DIR)),
-        autoescape=select_autoescape(["html"]),
-    )
-    template = env.get_template(_TEMPLATE_NAME)
+    logger.debug("Loading Jinja2 template from cached environment: %s", _TEMPLATES_DIR)
+    template = _JINJA_ENV.get_template(_TEMPLATE_NAME)
     html_content = template.render(**context)
 
     # ── WeasyPrint PDF generation ─────────────────────────────────────────────

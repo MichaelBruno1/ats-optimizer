@@ -7,6 +7,7 @@ STRICT RULE: The agent NEVER fabricates information. It only reformulates
 what is already present in the resume analysis.
 """
 
+import asyncio
 import json
 import logging
 
@@ -29,6 +30,36 @@ class ResumeOptimizerAgent(BaseAgent):
     """
 
     system_prompt_file = "resume_optimization.txt"
+
+    @property
+    def semaphore(self) -> asyncio.Semaphore:
+        """Lazy initialized event-loop bound semaphore to limit concurrency."""
+        if not hasattr(self, "_semaphore"):
+            # Limit to 3 concurrent optimization LLM calls
+            self._semaphore = asyncio.Semaphore(3)
+        return self._semaphore
+
+    def _filter_hallucinated_skills(
+        self,
+        optimized: OptimizedResume,
+        resume_analysis: ResumeAnalysis,
+        original_resume_text: str,
+    ) -> None:
+        """Safety post-processing check to prune hallucinated/unsupported skills."""
+        original_skills_lower = {s.lower().strip() for s in resume_analysis.skills}
+        original_text_lower = original_resume_text.lower()
+
+        filtered_skills = []
+        for skill in optimized.content.skills:
+            skill_cleaned = skill.lower().strip()
+            if skill_cleaned in original_skills_lower or skill_cleaned in original_text_lower:
+                filtered_skills.append(skill)
+            else:
+                logger.warning(
+                    "Programmatic safety filter: Removed hallucinated skill '%s' not present in original resume.",
+                    skill
+                )
+        optimized.content.skills = filtered_skills
 
     async def optimize_single(
         self,
@@ -70,11 +101,14 @@ class ResumeOptimizerAgent(BaseAgent):
             len(job_analyses),
             all_job_titles,
         )
-        raw = await self._invoke(user_message)
+        async with self.semaphore:
+            raw = await self._invoke(user_message)
         raw["job_index"] = None
 
         try:
-            return OptimizedResume.model_validate(raw)
+            optimized = OptimizedResume.model_validate(raw)
+            self._filter_hallucinated_skills(optimized, resume_analysis, original_resume_text)
+            return optimized
         except Exception as exc:
             logger.error(
                 "OptimizedResume (single) validation failed: %s — raw: %s",
@@ -123,11 +157,14 @@ class ResumeOptimizerAgent(BaseAgent):
             job_analysis.job_index,
             job_analysis.title,
         )
-        raw = await self._invoke(user_message)
+        async with self.semaphore:
+            raw = await self._invoke(user_message)
         raw["job_index"] = job_analysis.job_index
 
         try:
-            return OptimizedResume.model_validate(raw)
+            optimized = OptimizedResume.model_validate(raw)
+            self._filter_hallucinated_skills(optimized, resume_analysis, original_resume_text)
+            return optimized
         except Exception as exc:
             logger.error(
                 "OptimizedResume (job #%d) validation failed: %s — raw: %s",

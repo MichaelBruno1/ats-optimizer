@@ -230,3 +230,38 @@ async def test_base_agent_self_healing_retry(
     assert kwargs_call1["max_tokens"] == 2000
     assert kwargs_call2["max_tokens"] == 1300
 
+
+@pytest.mark.asyncio
+@patch("litellm.acompletion")
+async def test_resume_optimizer_hallucination_filter(
+    mock_acompletion: MagicMock,
+    sample_resume_analysis: ResumeAnalysis,
+    sample_job_analysis: JobAnalysis,
+    sample_optimized_resume: OptimizedResume
+) -> None:
+    """Test that OptimizedResume agent filters out hallucinated skills programmatically."""
+    # Modify original resume analysis to only have "Python" and "FastAPI"
+    sample_resume_analysis.skills = ["Python", "FastAPI"]
+    
+    # Original raw text contains "FastAPI" and "SQL" (SQL is in raw text but not in parsed skills list)
+    original_text = "FastAPI developer with SQL experience."
+    
+    # Mock optimized resume output with: "Python" (valid), "SQL" (valid from raw text), and "COBOL" (hallucinated)
+    optimized_dump = sample_optimized_resume.model_copy(deep=True)
+    optimized_dump.content.skills = ["Python", "SQL", "COBOL"]
+    
+    mock_acompletion.return_value = mock_llm_response(optimized_dump.model_dump_json())
+
+    agent = ResumeOptimizerAgent()
+    result = await agent.optimize_for_job(
+        resume_analysis=sample_resume_analysis,
+        job_analysis=sample_job_analysis,
+        original_resume_text=original_text
+    )
+
+    # It should preserve Python and SQL, but prune COBOL
+    assert "Python" in result.content.skills
+    assert "SQL" in result.content.skills
+    assert "COBOL" not in result.content.skills
+    assert len(result.content.skills) == 2
+

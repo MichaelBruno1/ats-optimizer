@@ -11,6 +11,7 @@ import re
 from pathlib import Path
 from typing import Any
 
+from functools import lru_cache
 import litellm
 
 from app.config import settings
@@ -22,6 +23,18 @@ litellm.set_verbose = False  # type: ignore[attr-defined]
 
 # Directory containing prompt .txt files
 PROMPTS_DIR = Path(__file__).parent / "prompts"
+
+
+@lru_cache(maxsize=16)
+def _load_prompt_cached(filename: str) -> str:
+    """Load and cache system prompt from disk."""
+    prompt_path = PROMPTS_DIR / filename
+    try:
+        return prompt_path.read_text(encoding="utf-8")
+    except FileNotFoundError as exc:
+        raise AgentError(
+            f"System prompt file not found: {prompt_path}"
+        ) from exc
 
 
 class AgentError(Exception):
@@ -104,19 +117,11 @@ class BaseAgent:
         Raises:
             AgentError: If the prompt file cannot be found or read.
         """
-        if self._system_prompt is None:
-            if not self.system_prompt_file:
-                raise AgentError(
-                    f"{self.__class__.__name__} did not set 'system_prompt_file'."
-                )
-            prompt_path = PROMPTS_DIR / self.system_prompt_file
-            try:
-                self._system_prompt = prompt_path.read_text(encoding="utf-8")
-            except FileNotFoundError as exc:
-                raise AgentError(
-                    f"System prompt file not found: {prompt_path}"
-                ) from exc
-        return self._system_prompt
+        if not self.system_prompt_file:
+            raise AgentError(
+                f"{self.__class__.__name__} did not set 'system_prompt_file'."
+            )
+        return _load_prompt_cached(self.system_prompt_file)
 
     # ─────────────────────────────────────────────────────────────────────────
     # LLM invocation
