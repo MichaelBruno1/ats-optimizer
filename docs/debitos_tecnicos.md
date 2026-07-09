@@ -90,60 +90,7 @@ O `@import url(...)` para Google Fonts bloqueia a renderização da página.
 O CSS é servido como arquivo único e não minificado. Contém CSS morto (ex: classe `.ats-badge` removida do template mas ainda definida no stylesheet).
 **Correção sugerida:** Remover CSS não utilizado e considerar minificação no processo de build.
 
----
-
-## 3. Acessibilidade (A11y)
-
-### 🟠 A11Y-01 — Barra de progresso sem atributos ARIA
-**Arquivo:** `frontend/js/progress.js`
-A barra de progresso não possui `role="progressbar"`, `aria-valuenow`, `aria-valuemin` ou `aria-valuemax`. Leitores de tela não conseguem interpretar o progresso.
-**Correção sugerida:** Adicionar os atributos ARIA adequados e atualizá-los dinamicamente.
-
----
-
-### 🟠 A11Y-02 — Tabs de navegação sem papéis ARIA
-**Arquivo:** `frontend/index.html`
-A navegação por etapas (`.step-tabs`) não possui `role="tablist"`, `role="tab"` e `role="tabpanel"`.
-**Correção sugerida:** Adicionar os roles ARIA apropriados e gerenciar `aria-selected`.
-
----
-
-### 🟠 A11Y-03 — Ausência de estados de foco (:focus-visible)
-**Arquivo:** `frontend/css/style.css`
-Nenhum estilo de foco é definido para elementos interativos. Usuários de teclado não têm indicação visual de qual elemento está selecionado.
-**Correção sugerida:** Adicionar estilos `:focus-visible` para botões, inputs e links.
-
----
-
-### 🟡 A11Y-04 — Zona de drag-and-drop inacessível via teclado
-**Arquivo:** `frontend/js/upload.js`
-A área de upload por arrastar não pode ser ativada via teclado. Não há foco programático no input file oculto.
-**Correção sugerida:** Tornar a área focável (`tabindex="0"`) e ativar o seletor de arquivos via `Enter`/`Space`.
-
----
-
-### 🟡 A11Y-05 — Dial SVG de score sem texto alternativo
-**Arquivo:** `frontend/js/results.js`
-O gráfico circular SVG do score ATS não possui `aria-label` ou equivalente textual para leitores de tela.
-**Correção sugerida:** Adicionar `aria-label="Pontuação ATS: XX de 100"` ao container SVG.
-
----
-
-### 🟡 A11Y-06 — Contraste de cores insuficiente
-**Arquivo:** `frontend/css/style.css`
-A cor `--pastel-text-light: #8A8A8A` sobre fundo branco (`#FFFFFF`) provavelmente não atende o critério de contraste WCAG AA (mínimo 4.5:1).
-**Correção sugerida:** Verificar com ferramenta de contraste e ajustar para pelo menos `#767676`.
-
----
-
-### 🟡 A11Y-07 — Atributo `lang` ausente no HTML
-**Arquivos:** `frontend/index.html`, `backend/app/templates/resume_template.html`
-Nenhum dos documentos HTML possui o atributo `lang="pt-BR"`, prejudicando leitores de tela e motores de busca.
-**Correção sugerida:** Adicionar `<html lang="pt-BR">`.
-
----
-
-## 4. Qualidade de Código e Manutenibilidade
+## 3. Qualidade de Código e Manutenibilidade
 
 ### 🟠 CODE-01 — Padrão de config com classe `Config` depreciado (Pydantic v2)
 **Arquivo:** `backend/app/api/schemas.py`
@@ -238,30 +185,7 @@ Nenhuma política de reinicialização está configurada. Se o container falhar,
 
 ---
 
-## 6. Internacionalização (i18n)
-
-### 🟡 I18N-01 — Strings da interface hardcoded em português
-**Arquivo:** `frontend/index.html`, `frontend/js/app.js`
-Todos os textos da interface estão embutidos diretamente no HTML e JS. Não há sistema de i18n para suportar outros idiomas no futuro.
-**Correção sugerida:** Extrair strings para um arquivo de localização (ex: `locales/pt-BR.json`) e consumir via helper JS.
-
----
-
-### 🟡 I18N-02 — Detecção de idioma do PDF baseada em heurísticas limitadas
-**Arquivo:** `backend/app/services/pdf_generator.py`
-A função `_detect_language()` utiliza apenas ~12 palavras por idioma para detectar português/espanhol/inglês. Currículos curtos, bilíngues ou em idiomas não suportados podem ser classificados incorretamente.
-**Correção sugerida:** Utilizar uma biblioteca de detecção de idioma (ex: `langdetect`, `lingua`) ou propagar o idioma detectado pela LLM durante a análise do currículo.
-
----
-
-### 🟡 I18N-03 — Meta description do HTML em inglês
-**Arquivo:** `frontend/index.html`
-A meta tag de descrição está em inglês ("AI-powered resume optimizer...") enquanto o público-alvo é falante de português.
-**Correção sugerida:** Traduzir para português.
-
----
-
-## 7. Performance Adicional
+## 5. Performance Adicional
 
 ### 🟠 PERF-05 — Parsing de documentos bloqueia o event loop
 **Arquivo:** `backend/app/services/document_parser.py`
@@ -277,7 +201,7 @@ No modo `per_job`, todas as otimizações rodam via `asyncio.gather` sem semáfo
 
 ---
 
-## 8. Código Morto e Dependências Obsoletas
+## 6. Código Morto e Dependências Obsoletas
 
 ### 🟡 DEAD-01 — Dependency Injection não utilizada
 **Arquivo:** `backend/app/api/dependencies.py`
@@ -300,30 +224,7 @@ O Materialize CSS (v1.0.0, última release em 2018) está depreciado. O CSS do p
 
 ---
 
-## 9. Acessibilidade Adicional
-
-### 🟡 A11Y-08 — Sem suporte a `prefers-reduced-motion`
-**Arquivo:** `frontend/css/style.css`
-Animações infinitas (`logoFloat`, `pulse`, `ripple`) rodam sem respeitar a preferência do sistema operacional por movimento reduzido, o que pode causar desconforto em usuários com distúrbios vestibulares.
-**Correção sugerida:** Adicionar `@media (prefers-reduced-motion: reduce) { * { animation: none !important; } }`.
-
----
-
-### 🟡 A11Y-09 — Ausência de `<noscript>` fallback
-**Arquivo:** `frontend/index.html`
-Se o JavaScript estiver desabilitado, o usuário verá uma página em branco sem nenhuma mensagem explicativa.
-**Correção sugerida:** Adicionar `<noscript>` com orientação ao usuário.
-
----
-
-### 🟡 A11Y-10 — Função `escapeHtml` não compartilhada entre módulos
-**Arquivo:** `frontend/js/results.js`
-A função `escapeHtml()` existe apenas em `results.js` e não é exportada. Outros módulos que usam `innerHTML` (`app.js`, `jobs.js`, `upload.js`) não têm acesso a ela.
-**Correção sugerida:** Extrair para um módulo utilitário compartilhado (`utils.js`).
-
----
-
-## 10. Cobertura de Testes — Mapa Detalhado
+## 7. Cobertura de Testes — Mapa Detalhado
 
 | Módulo | Cobertura | Nota |
 |---|---|---|
@@ -348,7 +249,7 @@ A função `escapeHtml()` existe apenas em `results.js` e não é exportada. Out
 | Severidade | Quantidade |
 |---|---|
 | 🔴 Crítico | 0 |
-| 🟠 Alto | 7 |
-| 🟡 Médio | 20 |
+| 🟠 Alto | 4 |
+| 🟡 Médio | 10 |
 | 🟢 Baixo | 4 |
-| **Total** | **31** |
+| **Total** | **18** |
