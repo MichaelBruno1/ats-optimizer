@@ -98,7 +98,7 @@ Todas as configurações são carregadas de variáveis de ambiente ou do arquivo
 | `LLM_TEMPERATURE` | `0.3` | Temperatura de amostragem (0.0 a 1.0) |
 | `LLM_MAX_TOKENS` | `4096` | Limite de tokens de saída por chamada do LLM |
 | `MAX_FILE_SIZE_MB` | `5` | Tamanho máximo permitido para o upload de currículos |
-| `MAX_JOBS` | `10` | Quantidade máxima de vagas processadas por requisição |
+| `MAX_JOBS` | `3` | Quantidade máxima de vagas processadas por requisição |
 | `TEMP_DIR` | `/tmp/ats_optimizer` | Diretório de armazenamento temporário de sessões |
 | `TEMP_CLEANUP_MINUTES` | `30` | Tempo de vida dos arquivos temporários antes da limpeza automática |
 | `CORS_ORIGINS` | `http://localhost:8000` | Origens permitidas para requisições CORS separadas por vírgula |
@@ -187,7 +187,7 @@ Faz o download do currículo PDF otimizado.
 {
   "provider": "openai",
   "model": "gpt-4o-mini",
-  "max_jobs": 10,
+  "max_jobs": 3,
   "accepted_formats": [".pdf", ".docx", ".txt"],
   "max_file_size_mb": 5,
   "output_modes": ["single", "per_job"]
