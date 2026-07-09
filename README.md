@@ -1,109 +1,109 @@
 # ATS Optimizer
 
-> AI-powered resume optimization engine that analyzes job descriptions and tailors resumes for maximum ATS (Applicant Tracking System) compatibility.
+> Mecanismo de otimização de currículos baseado em IA que analisa descrições de vagas e personaliza currículos para máxima compatibilidade com sistemas ATS (Applicant Tracking System).
 
 ---
 
-## Features
+## Funcionalidades
 
-- 📄 **Resume Parsing** — Supports PDF, DOCX, and TXT formats (up to 5 MB)
-- 🔍 **Intelligent Job Analysis** — Extracts ATS keywords, required skills, seniority, and gap analysis
-- ✨ **Resume Optimization** — Two modes:
-  - `single` — One balanced resume optimized for all submitted jobs
-  - `per_job` — A highly focused resume tailored to each vacancy
-- 📊 **ATS Scoring** — Estimated ATS readability and compatibility scores
-- 📥 **PDF Export** — Professional single-column PDF generated with WeasyPrint
-- 📡 **Real-time Progress** — Server-Sent Events (SSE) for live pipeline updates
-- 🤖 **Multi-provider LLM** — OpenAI, Ollama, Gemini, Azure, Anthropic via LiteLLM
+- 📄 **Leitura de Currículos** — Suporta formatos PDF, DOCX e TXT (até 5 MB)
+- 🔍 **Análise Inteligente de Vagas** — Extrai palavras-chave ATS, habilidades exigidas, nível de senioridade e análise de lacunas (gap analysis)
+- ✨ **Otimização de Currículos** — Dois modos de operação:
+  - `single` — Um único currículo balanceado e otimizado para todas as vagas enviadas
+  - `per_job` — Um currículo altamente focado e personalizado para cada vaga individualmente
+- 📊 **Pontuação ATS** — Estimativa de pontuação de legibilidade e compatibilidade com o sistema ATS
+- 📥 **Exportação para PDF** — PDF profissional de coluna única gerado dinamicamente com WeasyPrint
+- 📡 **Progresso em Tempo Real** — Server-Sent Events (SSE) para acompanhamento ao vivo do pipeline de processamento
+- 🤖 **Integração de LLM Multi-provedor** — OpenAI, Ollama, Gemini, Azure e Anthropic via LiteLLM
 
 ---
 
-## Architecture
+## Arquitetura
 
 ```
 POST /api/v1/analyze
 │
-├── Document Parser     → Extracts text from PDF/DOCX/TXT
-├── Resume Analyst      → LLM agent: structured resume extraction
-├── Job Analyst (async) → LLM agent: parallel job description analysis
-├── Resume Optimizer    → LLM agent: ATS-optimized resume content
-└── PDF Generator       → WeasyPrint + Jinja2 → PDF file
-
-GET /api/v1/progress/{session_id}  → SSE real-time progress stream
-GET /api/v1/download/{session_id}/{job_index} → PDF download
+├── Document Parser     → Extrai texto de PDF/DOCX/TXT
+├── Resume Analyst      → Agente LLM: extração estruturada do currículo
+├── Job Analyst (async) → Agente LLM: análise paralela de descrições de vagas
+├── Resume Optimizer    → Agente LLM: geração de currículo otimizado para ATS
+└── PDF Generator       → WeasyPrint + Jinja2 → Arquivo PDF final
+    
+GET /api/v1/progress/{session_id}  → Stream de progresso SSE em tempo real
+GET /api/v1/download/{session_id}/{job_index} → Download do PDF gerado
 ```
 
 ---
 
-## Quick Start
+## Início Rápido
 
-### Prerequisites
+### Pré-requisitos
 
 - Python 3.12+
-- An LLM API key (OpenAI, Gemini, Anthropic) **or** a local Ollama instance
+- Uma chave de API de LLM (OpenAI, Gemini, Anthropic) **ou** uma instância local do Ollama ativa
 
-### Local Development
+### Desenvolvimento Local
 
 ```bash
-# 1. Clone and enter the backend
+# 1. Entre no diretório do backend
 cd backend
 
-# 2. Create and activate a virtual environment
+# 2. Crie e ative um ambiente virtual
 python -m venv .venv
-# Windows:
+# No Windows:
 .venv\Scripts\activate
-# Linux/macOS:
+# No Linux/macOS:
 source .venv/bin/activate
 
-# 3. Install dependencies
+# 3. Instale as dependências
 pip install -r requirements.txt
 
-# 4. Configure environment
+# 4. Configure as variáveis de ambiente
 cp .env.example .env
-# Edit .env with your LLM API key and settings
+# Edite o arquivo .env com sua chave de API e configurações de LLM
 
-# 5. Start the API server
+# 5. Inicie o servidor da API
 uvicorn app.main:app --reload --port 8000
 ```
 
-The API will be available at `http://localhost:8000`.
-Interactive docs: `http://localhost:8000/api/docs`
+A API estará disponível em `http://localhost:8000`.
+Documentação interativa do Swagger: `http://localhost:8000/api/docs`
 
 ### Docker Compose
 
 ```bash
-# 1. Configure environment
+# 1. Configure as variáveis de ambiente
 cp backend/.env.example backend/.env
-# Edit backend/.env with your settings
+# Edite backend/.env com as configurações da sua LLM
 
-# 2. Build and start
+# 2. Compile e inicie o container
 docker-compose up --build
 
-# Stop
+# Para parar a execução
 docker-compose down
 ```
 
 ---
 
-## Configuration
+## Configurações
 
-All settings are loaded from environment variables or `backend/.env`:
+Todas as configurações são carregadas de variáveis de ambiente ou do arquivo `backend/.env`:
 
-| Variable | Default | Description |
+| Variável | Padrão | Descrição |
 |---|---|---|
-| `LLM_PROVIDER` | `openai` | Provider name (openai, ollama, gemini, azure, anthropic) |
-| `LLM_MODEL` | `gpt-4o-mini` | Model name |
-| `LLM_API_KEY` | _(empty)_ | API key for the chosen provider |
-| `LLM_API_BASE` | _(empty)_ | Custom API base URL (for Ollama or compatible APIs) |
-| `LLM_TEMPERATURE` | `0.3` | Sampling temperature (0.0–1.0) |
-| `LLM_MAX_TOKENS` | `4096` | Maximum output tokens per LLM call |
-| `MAX_FILE_SIZE_MB` | `5` | Maximum uploaded resume size |
-| `MAX_JOBS` | `10` | Maximum job descriptions per request |
-| `TEMP_DIR` | `/tmp/ats_optimizer` | Base directory for temporary session files |
-| `TEMP_CLEANUP_MINUTES` | `30` | Lifetime of session files before cleanup |
-| `CORS_ORIGINS` | `http://localhost:8000` | Comma-separated allowed CORS origins |
+| `LLM_PROVIDER` | `openai` | Nome do provedor (openai, ollama, gemini, azure, anthropic) |
+| `LLM_MODEL` | `gpt-4o-mini` | Nome do modelo |
+| `LLM_API_KEY` | _(vazio)_ | Chave de API do provedor configurado |
+| `LLM_API_BASE` | _(vazio)_ | URL base personalizada (para Ollama ou gateways compatíveis com OpenAI) |
+| `LLM_TEMPERATURE` | `0.3` | Temperatura de amostragem (0.0 a 1.0) |
+| `LLM_MAX_TOKENS` | `4096` | Limite de tokens de saída por chamada do LLM |
+| `MAX_FILE_SIZE_MB` | `5` | Tamanho máximo permitido para o upload de currículos |
+| `MAX_JOBS` | `10` | Quantidade máxima de vagas processadas por requisição |
+| `TEMP_DIR` | `/tmp/ats_optimizer` | Diretório de armazenamento temporário de sessões |
+| `TEMP_CLEANUP_MINUTES` | `30` | Tempo de vida dos arquivos temporários antes da limpeza automática |
+| `CORS_ORIGINS` | `http://localhost:8000` | Origens permitidas para requisições CORS separadas por vírgula |
 
-### Using Ollama (local)
+### Exemplo usando Ollama (local)
 
 ```env
 LLM_PROVIDER=ollama
@@ -112,30 +112,30 @@ LLM_API_BASE=http://localhost:11434
 LLM_API_KEY=ollama
 ```
 
-### Using Google Gemini
+### Exemplo usando Google Gemini
 
 ```env
 LLM_PROVIDER=gemini
 LLM_MODEL=gemini-1.5-flash
-LLM_API_KEY=your-gemini-api-key
+LLM_API_KEY=sua-chave-api-gemini
 ```
 
 ---
 
-## API Reference
+## Referência da API
 
 ### `POST /api/v1/analyze`
 
-Starts the resume optimization pipeline.
+Inicia o fluxo de otimização de currículo em segundo plano.
 
-**Request** — `multipart/form-data`:
-| Field | Type | Description |
+**Requisição** — `multipart/form-data`:
+| Campo | Tipo | Descrição |
 |---|---|---|
-| `resume` | File | Resume file (.pdf, .docx, .txt — max 5 MB) |
-| `jobs` | string (JSON) | Array of `{title, company?, description}` objects |
-| `output_mode` | string | `"single"` or `"per_job"` |
+| `resume` | Arquivo | Currículo (.pdf, .docx, .txt — máx 5 MB) |
+| `jobs` | string (JSON) | Array contendo objetos `{title, company?, description}` |
+| `output_mode` | string | `"single"` ou `"per_job"` |
 
-**Response** — `200 OK`:
+**Resposta** — `200 OK`:
 ```json
 {
   "session_id": "abc123...",
@@ -147,29 +147,29 @@ Starts the resume optimization pipeline.
 
 ### `GET /api/v1/progress/{session_id}`
 
-Server-Sent Events stream for real-time progress.
+Fluxo de Server-Sent Events (SSE) para atualização do progresso de execução.
 
-**Events**:
+**Eventos**:
 ```
 event: progress
-data: {"step": "resume_analysis", "progress": 20, "message": "Resume analysis complete."}
+data: {"step": "resume_analysis", "progress": 20, "message": "Análise do currículo concluída."}
 
 event: complete
 data: {"progress": 100, "message": "...", "session_id": "...", "result": {...}}
 
 event: error
-data: {"message": "Processing failed: ..."}
+data: {"message": "Falha no processamento: ..."}
 ```
 
 ---
 
 ### `GET /api/v1/download/{session_id}/{job_index}`
 
-Downloads the optimized PDF resume.
+Faz o download do currículo PDF otimizado.
 
-- Returns `application/pdf` with `Content-Disposition: attachment`
-- `job_index`: `0` for single mode, or the job's index for per_job mode
-- Returns `404` if the session or PDF doesn't exist
+- Retorna `application/pdf` com `Content-Disposition: attachment`
+- `job_index`: `0` no modo single, ou o índice numérico da vaga no modo per_job
+- Retorna `404` se a sessão ou o arquivo PDF correspondente não for localizado
 
 ---
 
@@ -196,18 +196,18 @@ Downloads the optimized PDF resume.
 
 ---
 
-## Running Tests
+## Executando os Testes
 
 ```bash
 cd backend
 pytest tests/ -v
 ```
 
-> **Note**: Integration tests that require LLM calls are skipped by default. Set `LLM_API_KEY` in your environment to run them.
+> **Nota**: Testes de integração que exigem chamadas de LLMs reais são ignorados por padrão. Defina as credenciais adequadas na variável de ambiente local para executá-los.
 
 ---
 
-## Project Structure
+## Estrutura do Projeto
 
 ```
 ats_optimizer/
@@ -218,41 +218,35 @@ ats_optimizer/
     ├── requirements.txt
     ├── .env.example
     └── app/
-        ├── main.py              # FastAPI app + lifespan
-        ├── config.py            # Pydantic BaseSettings
+        ├── main.py              # Aplicação FastAPI + rotinas de lifespan
+        ├── config.py            # Definição do Pydantic BaseSettings
         ├── api/
-        │   ├── router.py        # All endpoints + SSE pipeline
-        │   ├── schemas.py       # Pydantic v2 models
-        │   └── dependencies.py  # FastAPI dependency injection
+        │   ├── router.py        # Endpoints expostos e pipeline assíncrono
+        │   ├── schemas.py       # Modelos Pydantic v2 do contrato da API
+        │   └── dependencies.py  # Gerenciamento de dependências do FastAPI
         ├── agents/
-        │   ├── base_agent.py        # LiteLLM base class
-        │   ├── job_analyst.py       # Job description analyzer
-        │   ├── resume_analyst.py    # Resume structure extractor
-        │   ├── resume_optimizer.py  # ATS resume optimizer
+        │   ├── base_agent.py        # Classe base do LiteLLM
+        │   ├── job_analyst.py       # Agente analista de descrição de vagas
+        │   ├── resume_analyst.py    # Agente de extração estruturada do currículo
+        │   ├── resume_optimizer.py  # Agente otimizador para ATS
         │   └── prompts/
         │       ├── job_analysis.txt
         │       ├── resume_analysis.txt
         │       └── resume_optimization.txt
         ├── services/
-        │   ├── document_parser.py   # PDF/DOCX/TXT text extraction
-        │   ├── pdf_generator.py     # WeasyPrint PDF renderer
-        │   └── temp_storage.py      # Session management + SSE queues
+        │   ├── document_parser.py   # Extrator de texto de PDF/DOCX/TXT
+        │   ├── pdf_generator.py     # Renderizador de PDF via WeasyPrint
+        │   └── temp_storage.py      # Gestão de sessões e filas SSE
         └── templates/
-            └── resume_template.html # Jinja2 ATS-friendly template
+            └── resume_template.html # Template Jinja2 amigável para ATS
 ```
 
 ---
 
-## Agent Design Principles
+## Princípios de Design dos Agentes
 
-1. **No hallucination** — The optimizer only reorganizes and rephrases existing content
-2. **Language detection** — All output is in the same language as the input resume
-3. **Exact keyword matching** — ATS keywords are incorporated verbatim from job descriptions
-4. **Async-first** — Job analyses run concurrently; WeasyPrint runs in a thread pool
-5. **Ephemeral storage** — All session files are deleted after `TEMP_CLEANUP_MINUTES`
-
----
-
-## License
-
-MIT
+1. **Sem alucinação** — O otimizador se limita a reorganizar e reformular informações reais presentes no currículo original
+2. **Respeito ao idioma** — Toda a saída estruturada gerada pelos agentes é gerada no mesmo idioma detectado no currículo original
+3. **Correspondência exata de termos** — As palavras-chave ATS identificadas são inseridas de forma literal a partir do anúncio da vaga
+4. **Assincronismo** — As análises de vagas rodam de forma concorrente em paralelo; WeasyPrint executa em thread pool isolado
+5. **Armazenamento efêmero** — Todos os arquivos criados nas sessões são destruídos automaticamente após decorridos `TEMP_CLEANUP_MINUTES`
