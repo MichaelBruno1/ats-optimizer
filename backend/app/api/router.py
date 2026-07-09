@@ -329,9 +329,20 @@ async def analyze(
             detail=f"Too many jobs. Maximum is {settings.max_jobs}, received {len(job_list)}.",
         )
 
-    # ── Parse and validate resume file ───────────────────────────────────────
     try:
         resume_text = await extract_text_from_upload(resume)
+        # Safety truncation to prevent local LLM context window overflows
+        MAX_RESUME_CHARS = 12000
+        if len(resume_text) > MAX_RESUME_CHARS:
+            logger.warning(
+                "Extracted resume text too long (%d chars). Truncating to %d chars.",
+                len(resume_text),
+                MAX_RESUME_CHARS
+            )
+            resume_text = (
+                resume_text[:MAX_RESUME_CHARS]
+                + "\n\n... [Conteúdo truncado para conformidade com a janela de contexto do modelo] ..."
+            )
     except FileTooLargeError as exc:
         raise HTTPException(status_code=413, detail=str(exc)) from exc
     except UnsupportedFormatError as exc:

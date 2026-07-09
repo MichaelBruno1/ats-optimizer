@@ -195,6 +195,23 @@ class TestAnalyzeValidation:
         assert "session_id" in body
         assert len(body["session_id"]) == 32  # UUID4 hex
 
+    def test_txt_resume_truncation_safety(self) -> None:
+        """A very long resume should be safely truncated before session creation."""
+        with patch("app.api.router.asyncio.create_task") as mock_task:
+            mock_task.return_value = None  # Suppress background task
+
+            very_long_content = b"A" * 15000  # 15000 chars (exceeds 12000 limit)
+            fake_txt = io.BytesIO(very_long_content)
+            response = client.post(
+                "/api/v1/analyze",
+                files={"resume": ("resume.txt", fake_txt, "text/plain")},
+                data={"jobs": self._valid_jobs_payload(), "output_mode": "single"},
+            )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert "session_id" in body
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Download endpoint
