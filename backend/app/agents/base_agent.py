@@ -227,6 +227,25 @@ class BaseAgent:
                 except json.JSONDecodeError:
                     pass
 
+            # Backtracking recovery for truncated JSON (e.g. from context size limits)
+            if start != -1:
+                candidate_base = cleaned[start:]
+                # Iterate backwards to find a point where we can repair
+                for i in range(len(candidate_base), 0, -1):
+                    trimmed = candidate_base[:i].strip()
+                    # Try different closing bracket combinations to find a valid one
+                    for suffix in ("", "}", '"}', '"]}', '"}]}', ']}', ']', '"]'):
+                        try:
+                            parsed = json.loads(trimmed + suffix)
+                            if isinstance(parsed, dict):
+                                logger.warning(
+                                    "Successfully repaired truncated JSON response by backtracking (trimmed %d chars).",
+                                    len(candidate_base) - i
+                                )
+                                return parsed
+                        except json.JSONDecodeError:
+                            pass
+
         logger.error(
             "JSON parsing failed. Raw response length: %d. Start: %r... End: %r",
             len(raw), raw[:200], raw[-200:]

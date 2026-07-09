@@ -160,3 +160,37 @@ async def test_resume_optimizer_per_job_mode(
     assert result.job_index == 0
     assert result.target_job_title == "Desenvolvedor Backend Sênior"
     mock_acompletion.assert_called_once()
+
+
+@pytest.mark.asyncio
+@patch("litellm.acompletion")
+async def test_job_analyst_truncated_json_repair(
+    mock_acompletion: MagicMock,
+    sample_job_analysis: JobAnalysis
+) -> None:
+    """Test that agent successfully repairs and validates truncated JSON."""
+    raw_truncated = (
+        '{\n  "job_index": 0,\n  "title": "Pessoa Desenvolvedora Back-end Java Sênior",\n'
+        '  "company": "FCamara",\n  "seniority_level": "senior",\n  "required_skills": [\n'
+        '    "Java",\n    "Desenvolvimento de software"\n  ],\n  "compatibility_score": 85,\n'
+        '  "gap_analysis": "Embora o JD seja detalhado sobre metodologias ('
+    )
+    mock_acompletion.return_value = mock_llm_response(raw_truncated)
+
+    job_input = JobInput(
+        title="Desenvolvedor Java",
+        company="FCamara",
+        description="Java Developer description..."
+    )
+
+    agent = JobAnalystAgent()
+    result = await agent.analyze(job_input, job_index=0)
+
+    # It should successfully repair the JSON and validate the model
+    assert isinstance(result, JobAnalysis)
+    assert result.job_index == 0
+    assert result.title == "Pessoa Desenvolvedora Back-end Java Sênior"
+    assert result.compatibility_score == 85
+    # The truncated field "gap_analysis" should be partially recovered up to the truncation point
+    assert "Embora o JD seja detalhado" in result.gap_analysis
+
