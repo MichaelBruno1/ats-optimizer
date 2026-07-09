@@ -265,3 +265,32 @@ async def test_resume_optimizer_hallucination_filter(
     assert "COBOL" not in result.content.skills
     assert len(result.content.skills) == 2
 
+
+@pytest.mark.asyncio
+@patch("litellm.acompletion")
+async def test_base_agent_empty_response_retry(mock_acompletion: MagicMock) -> None:
+    """Test that empty response content triggers the retry loop."""
+    # First response is empty, second is a valid JSON for ResumeAnalysis
+    first_res = mock_llm_response("")
+    second_res = mock_llm_response(
+        json.dumps({
+            "candidate_name": "Test Candidate",
+            "ats_readability_score": 85,
+            "skills": ["Python"]
+        })
+    )
+    mock_acompletion.side_effect = [first_res, second_res]
+
+    agent = ResumeAnalystAgent(max_tokens=2000)
+    result = await agent.analyze("Raw resume text")
+
+    # It should successfully retry on empty response and parse the second one
+    assert isinstance(result, ResumeAnalysis)
+    assert result.candidate_name == "Test Candidate"
+    assert mock_acompletion.call_count == 2
+    # Verify the second call reduced max_tokens
+    args_call1, kwargs_call1 = mock_acompletion.call_args_list[0]
+    args_call2, kwargs_call2 = mock_acompletion.call_args_list[1]
+    assert kwargs_call1["max_tokens"] == 2000
+    assert kwargs_call2["max_tokens"] == 1300
+

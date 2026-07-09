@@ -189,16 +189,19 @@ class BaseAgent:
                     max_tokens=current_max_tokens,
                     **extra_kwargs,
                 )
+                raw_content = response.choices[0].message.content or ""  # type: ignore[union-attr]
+                if not raw_content.strip():
+                    raise ValueError("Empty response received from LLM")
                 break  # Success
             except Exception as exc:
                 if attempt < 2:
                     exc_str = str(exc).lower()
-                    # If it's a context size issue, reduce max_tokens
-                    if "context size" in exc_str or "400" in exc_str or "bad request" in exc_str:
+                    # If it's a context size or empty response issue, reduce max_tokens
+                    if "context size" in exc_str or "400" in exc_str or "bad request" in exc_str or "empty response" in exc_str:
                         new_tokens = int(current_max_tokens * 0.65)
                         if new_tokens >= 800:
                             logger.warning(
-                                "LLM call failed for %s (context size). Retrying with reduced max_tokens=%d. Error: %s",
+                                "LLM call failed for %s (context/empty). Retrying with reduced max_tokens=%d. Error: %s",
                                 self.__class__.__name__,
                                 new_tokens,
                                 str(exc)
@@ -220,7 +223,6 @@ class BaseAgent:
                     logger.exception("LLM call failed for %s after all retry attempts", self.__class__.__name__)
                     raise AgentError(f"LLM invocation failed: {exc}") from exc
 
-        raw_content: str = response.choices[0].message.content or ""  # type: ignore[union-attr]
         logger.debug(
             "LLM response (%d chars): %s…", len(raw_content), raw_content[:120]
         )
