@@ -24,8 +24,8 @@ _TEMPLATE_NAME = "resume_template.html"
 def _detect_language(text: str) -> str:
     """Detect if the text is Portuguese, Spanish, or English based on common keywords."""
     text_lower = text.lower()
-    pt_words = {"experiência", "desenvolvedor", "tecnologia", "sistemas", "resumo", "educação", "idiomas", "projetos", "habilidades", "sênior", "pleno", "júnior"}
-    es_words = {"experiencia", "desarrollador", "tecnología", "sistemas", "resumen", "educación", "idiomas", "proyectos", "competencias", "senior", "pleno", "junior"}
+    pt_words = {"experiência", "desenvolvedor", "resumo", "educação", "idiomas", "projetos", "habilidades"}
+    es_words = {"experiencia", "desarrollador", "resumen", "educación", "idiomas", "proyectos", "competencias"}
     
     pt_count = sum(1 for w in pt_words if w in text_lower)
     es_count = sum(1 for w in es_words if w in text_lower)

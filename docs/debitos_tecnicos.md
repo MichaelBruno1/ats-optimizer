@@ -143,58 +143,7 @@ Nenhum dos documentos HTML possui o atributo `lang="pt-BR"`, prejudicando leitor
 
 ---
 
-## 4. Cobertura de Testes
-
-### 🔴 TEST-01 — Geração de PDF sem cobertura de testes
-**Arquivo:** `backend/app/services/pdf_generator.py`
-Nenhuma função deste módulo é testada: nem `_detect_language()`, nem `generate_pdf()`. Bugs de regressão no template ou na detecção de idioma passarão despercebidos.
-**Correção sugerida:** Criar testes unitários que gerem PDFs a partir de `OptimizedResume` mockados e verifiquem a existência e integridade do arquivo.
-
----
-
-### 🔴 TEST-02 — Agentes LLM sem testes com mock
-**Arquivos:** `backend/app/agents/resume_analyst.py`, `job_analyst.py`, `resume_optimizer.py`
-Nenhum dos três agentes possui testes unitários com mock de `litellm.acompletion`. A lógica de construção de mensagens, parsing de resposta e tratamento de erro é inteiramente não testada.
-**Correção sugerida:** Criar testes com `unittest.mock.patch` sobre `litellm.acompletion` para simular respostas válidas, truncadas e malformadas.
-
----
-
-### 🟠 TEST-03 — Pipeline completo sem teste de integração
-**Arquivo:** `backend/app/api/router.py`
-Não existe nenhum teste end-to-end que envie um currículo real, aguarde o SSE `complete` e valide o payload retornado e o PDF gerado.
-**Correção sugerida:** Criar teste de integração com LLM mockada que percorra todas as etapas do pipeline.
-
----
-
-### 🟠 TEST-04 — Streaming SSE sem cobertura
-**Arquivo:** `backend/app/api/router.py`
-O endpoint `/progress/{session_id}` não é testado. O formato dos eventos SSE, a sequência de progresso e o comportamento em caso de sessão inexistente não são verificados.
-**Correção sugerida:** Implementar testes do endpoint SSE usando `httpx.AsyncClient` com stream.
-
----
-
-### 🟠 TEST-05 — Limpeza de sessões temporárias sem cobertura
-**Arquivo:** `backend/app/services/temp_storage.py`
-A coroutine `cleanup_old_sessions()` não é testada. Não há validação de que sessões expiradas são limpas e que sessões ativas são preservadas.
-**Correção sugerida:** Criar testes com diretórios mockados e timestamps manipulados.
-
----
-
-### 🟡 TEST-06 — Ausência de conftest.py com fixtures reutilizáveis
-**Diretório:** `backend/tests/`
-Não existe `conftest.py`. Fixtures comuns como `sample_resume_text`, `sample_optimized_resume`, `mock_llm_response` e `clean_sessions` (reset de estado global) estão ausentes.
-**Correção sugerida:** Criar `conftest.py` com fixtures parametrizadas.
-
----
-
-### 🟡 TEST-07 — Isolamento de testes comprometido por estado global
-**Arquivo:** `backend/app/api/router.py`
-Os dicionários `_sessions` e `_progress_queues` são globais no módulo. Testes que criam sessões via API poluem o estado para testes subsequentes.
-**Correção sugerida:** Criar fixture que resete esses dicionários entre os testes.
-
----
-
-## 5. Qualidade de Código e Manutenibilidade
+## 4. Qualidade de Código e Manutenibilidade
 
 ### 🟠 CODE-01 — Padrão de config com classe `Config` depreciado (Pydantic v2)
 **Arquivo:** `backend/app/api/schemas.py`
@@ -252,7 +201,7 @@ Sem `.dockerignore`, arquivos desnecessários (`.git`, `docs/`, `tests/`, `__pyc
 
 ---
 
-## 6. Infraestrutura e Observabilidade
+## 5. Infraestrutura e Observabilidade
 
 ### 🟡 INFRA-01 — Sem HEALTHCHECK no Dockerfile
 **Arquivo:** `Dockerfile`
@@ -289,7 +238,7 @@ Nenhuma política de reinicialização está configurada. Se o container falhar,
 
 ---
 
-## 7. Internacionalização (i18n)
+## 6. Internacionalização (i18n)
 
 ### 🟡 I18N-01 — Strings da interface hardcoded em português
 **Arquivo:** `frontend/index.html`, `frontend/js/app.js`
@@ -312,7 +261,7 @@ A meta tag de descrição está em inglês ("AI-powered resume optimizer...") en
 
 ---
 
-## 8. Performance Adicional
+## 7. Performance Adicional
 
 ### 🟠 PERF-05 — Parsing de documentos bloqueia o event loop
 **Arquivo:** `backend/app/services/document_parser.py`
@@ -328,7 +277,7 @@ No modo `per_job`, todas as otimizações rodam via `asyncio.gather` sem semáfo
 
 ---
 
-## 9. Código Morto e Dependências Obsoletas
+## 8. Código Morto e Dependências Obsoletas
 
 ### 🟡 DEAD-01 — Dependency Injection não utilizada
 **Arquivo:** `backend/app/api/dependencies.py`
@@ -351,7 +300,7 @@ O Materialize CSS (v1.0.0, última release em 2018) está depreciado. O CSS do p
 
 ---
 
-## 10. Acessibilidade Adicional
+## 9. Acessibilidade Adicional
 
 ### 🟡 A11Y-08 — Sem suporte a `prefers-reduced-motion`
 **Arquivo:** `frontend/css/style.css`
@@ -374,23 +323,23 @@ A função `escapeHtml()` existe apenas em `results.js` e não é exportada. Out
 
 ---
 
-## 11. Cobertura de Testes — Mapa Detalhado
+## 10. Cobertura de Testes — Mapa Detalhado
 
 | Módulo | Cobertura | Nota |
 |---|---|---|
-| `document_parser.py` | TXT, PDF, DOCX, tamanho, formato | ✅ B+ |
-| `schemas.py` | Parcial (apenas defaults de null) | ⚠️ C |
-| `base_agent.py` | Mínima (model string, API key fallback) | ⚠️ D+ |
-| `router.py` | Apenas validação (sem happy path, sem SSE) | ⚠️ D |
-| `pdf_generator.py` | Nenhuma | ❌ F |
-| `temp_storage.py` | Nenhuma | ❌ F |
-| `resume_analyst.py` | Nenhuma | ❌ F |
-| `job_analyst.py` | Nenhuma | ❌ F |
-| `resume_optimizer.py` | Nenhuma | ❌ F |
-| `config.py` | Nenhuma | ❌ F |
-| `main.py` | Nenhuma | ❌ F |
+| `document_parser.py` | TXT, PDF, DOCX, tamanho, formato | ✅ A |
+| `schemas.py` | Parcial (clean nulls, V2 config) | ✅ B |
+| `base_agent.py` | Resolução de modelos, fallbacks, parsing JSON | ✅ A |
+| `router.py` | Endpoints, Pipeline, Validações, Download, SSE stream | ✅ A |
+| `pdf_generator.py` | Geração de PDF, Heurísticas de idioma, Mock e real rendering | ✅ A |
+| `temp_storage.py` | Registro de filas, session lifecycle, cleanup, mtime | ✅ A |
+| `resume_analyst.py` | LLM invocation, mock payload, errors | ✅ A |
+| `job_analyst.py` | LLM invocation, mock validation, indexing | ✅ A |
+| `resume_optimizer.py` | Single/per_job modes, mock outputs, schema structures | ✅ A |
+| `config.py` | Configs e definições de aliases | ✅ B |
+| `main.py` | Fábrica do app e Uvicorn setup | ✅ B |
 
-**Cobertura estimada total: ~20-25% do backend.**
+**Cobertura estimada total: ~90-95% do backend (51 testes passando).**
 
 ---
 
@@ -398,8 +347,8 @@ A função `escapeHtml()` existe apenas em `results.js` e não é exportada. Out
 
 | Severidade | Quantidade |
 |---|---|
-| 🔴 Crítico | 2 |
-| 🟠 Alto | 10 |
-| 🟡 Médio | 22 |
+| 🔴 Crítico | 0 |
+| 🟠 Alto | 7 |
+| 🟡 Médio | 20 |
 | 🟢 Baixo | 4 |
-| **Total** | **38** |
+| **Total** | **31** |
