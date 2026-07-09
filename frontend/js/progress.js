@@ -77,36 +77,34 @@ export function updateStatusMessage(msg) {
  */
 export function updateStepChecklist(step) {
   if (!STEP_ID_MAP[step]) return;
-  if (completedSteps.has(step)) return;
 
-  completedSteps.add(step);
+  const currentIdx = STEP_ORDER.indexOf(step);
 
-  // Remove active-step from all
-  STEP_ORDER.forEach((s) => {
+  STEP_ORDER.forEach((s, idx) => {
     const el = document.getElementById(STEP_ID_MAP[s]);
     if (!el) return;
-    el.classList.remove('active-step');
-  });
 
-  // Mark completed steps
-  completedSteps.forEach((s) => {
-    const el = document.getElementById(STEP_ID_MAP[s]);
-    if (!el) return;
-    el.classList.add('done');
-    el.classList.remove('active-step');
     const icon = el.querySelector('.check-icon');
-    if (icon) icon.textContent = 'check_circle';
-  });
 
-  // Activate next step
-  const nextIdx = STEP_ORDER.indexOf(step) + 1;
-  if (nextIdx < STEP_ORDER.length) {
-    const nextStep = STEP_ORDER[nextIdx];
-    if (!completedSteps.has(nextStep)) {
-      const el = document.getElementById(STEP_ID_MAP[nextStep]);
-      if (el) el.classList.add('active-step');
+    if (idx < currentIdx) {
+      // Completed steps
+      el.classList.add('done');
+      el.classList.remove('active-step');
+      if (icon) icon.textContent = 'check_circle';
+      completedSteps.add(s);
+    } else if (idx === currentIdx) {
+      // Currently active step
+      el.classList.remove('done', 'active-step');
+      el.classList.add('active-step');
+      if (icon) icon.textContent = 'radio_button_unchecked';
+      completedSteps.delete(s);
+    } else {
+      // Future steps
+      el.classList.remove('done', 'active-step');
+      if (icon) icon.textContent = 'radio_button_unchecked';
+      completedSteps.delete(s);
     }
-  }
+  });
 }
 
 /* ------------------------------------------------------------------ */
@@ -190,7 +188,15 @@ export function startProgress(sessionId, onComplete, onError) {
       if (hasFinished) return;
       hasFinished = true;
       // Mark all steps done and fill bar
-      STEP_ORDER.forEach(updateStepChecklist);
+      STEP_ORDER.forEach((s) => {
+        const el = document.getElementById(STEP_ID_MAP[s]);
+        if (!el) return;
+        el.classList.add('done');
+        el.classList.remove('active-step');
+        const icon = el.querySelector('.check-icon');
+        if (icon) icon.textContent = 'check_circle';
+        completedSteps.add(s);
+      });
       updateProgressBar(100);
       updateStatusMessage('Otimização concluída!');
       activeEventSource = null;
