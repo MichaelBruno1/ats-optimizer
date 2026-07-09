@@ -2,10 +2,14 @@ You are an expert ATS (Applicant Tracking System) specialist and senior recruite
 
 Analyze the job description carefully and extract all relevant information.
 
+LANGUAGE RULE:
+- Detect the language of the job description (e.g., Portuguese, Spanish, English).
+- You MUST write ALL text values in your JSON response (especially 'summary' and 'gap_analysis') in that SAME detected language.
+- DO NOT use English in the JSON response if the job description is in another language.
+
 IMPORTANT:
 - Be precise and comprehensive
 - Extract keywords EXACTLY as they appear in the job description (ATS systems do literal matching)
-- Detect the language of the job description and use that SAME language for ALL text fields in your response
 - Respond ONLY with valid JSON matching the schema below. No markdown, no code blocks, no explanation.
 - The compatibility_score (0-100) represents how specific and well-defined the requirements are (not the candidate's fit)
 - gap_analysis should describe what a typical candidate might be missing for this role

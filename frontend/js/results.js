@@ -172,7 +172,7 @@ export function renderJobAnalyses(jobAnalyses) {
           <div class="accordion-section">
             <div class="accordion-section-title">
               <span class="material-icons">analytics</span>
-              Gap Analysis
+              Análise de Lacunas
             </div>
             <div class="gap-panel">
               <p>${escapeHtml(gap_analysis)}</p>
