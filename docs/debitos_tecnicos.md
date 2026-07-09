@@ -4,65 +4,14 @@
 > Cada item é classificado por **severidade** e **área** para facilitar a priorização em sprints futuras.
 
 **Legenda de severidade:**
-- 🔴 **Crítico** — Risco de segurança, perda de dados ou falha em produção
+- 🔴 **Crítico** — Perda de dados ou falha em produção
 - 🟠 **Alto** — Impacto direto na qualidade, manutenção ou escalabilidade
 - 🟡 **Médio** — Melhoria significativa de robustez ou experiência do desenvolvedor
 - 🟢 **Baixo** — Polimento, boas práticas ou melhorias cosméticas
 
 ---
 
-## 1. Segurança
-
-### 🔴 SEC-01 — XSS via innerHTML no frontend
-**Arquivos:** `frontend/js/jobs.js`, `frontend/js/results.js`
-A função `renderJobCard()` em `jobs.js` injeta os valores digitados pelo usuário (`job.title`, `job.company`, `job.description`) diretamente no DOM via template literals e `innerHTML`, sem sanitização. O mesmo padrão ocorre em `results.js` ao exibir `strengths`, `weaknesses` e `improvement_suggestions` retornados pela LLM. Se a LLM devolver conteúdo com tags HTML ou se o usuário colar código malicioso no campo de descrição de vaga, o conteúdo será executado no navegador.
-**Correção sugerida:** Utilizar `textContent` para textos simples ou uma função de escape HTML antes de qualquer inserção via `innerHTML`.
-
----
-
-### 🔴 SEC-02 — Chave de API armazenada como texto plano
-**Arquivo:** `backend/app/config.py`
-A variável `llm_api_key` é tipada como `str` simples. Pydantic recomenda o uso de `SecretStr` para evitar que o valor apareça em logs, serialização JSON ou tracebacks de erro.
-**Correção sugerida:** Alterar o tipo para `SecretStr` e acessar via `.get_secret_value()`.
-
----
-
-### 🔴 SEC-03 — Container Docker executa como root
-**Arquivo:** `Dockerfile`
-O Dockerfile não cria nem troca para um usuário não-root. Se o container for comprometido, o atacante terá permissões de root dentro do container.
-**Correção sugerida:** Adicionar `RUN adduser --disabled-password appuser` e `USER appuser` antes do `CMD`.
-
----
-
-### 🟠 SEC-04 — Override de segurança do Gemini excessivamente permissivo
-**Arquivo:** `backend/app/agents/base_agent.py`
-As configurações de segurança do Gemini são definidas como `BLOCK_NONE` para **todas** as categorias de conteúdo. Apenas as categorias relacionadas a PII (informações pessoais do candidato) deveriam ser relaxadas.
-**Correção sugerida:** Manter `BLOCK_NONE` apenas para `HARM_CATEGORY_DANGEROUS_CONTENT` e categorias de PII, mantendo os filtros padrão para as demais.
-
----
-
-### 🟠 SEC-05 — Ausência de SRI (Subresource Integrity) nos CDNs externos
-**Arquivo:** `frontend/index.html`
-Os links do Materialize CSS e Google Fonts são carregados de CDNs sem o atributo `integrity`. Se o CDN for comprometido, scripts maliciosos podem ser injetados.
-**Correção sugerida:** Adicionar atributos `integrity` e `crossorigin` em todas as tags `<link>` e `<script>` externas.
-
----
-
-### 🟡 SEC-06 — Ausência de validação de magic bytes nos uploads
-**Arquivo:** `backend/app/services/document_parser.py`
-A validação do arquivo se baseia apenas na extensão. Um arquivo `.pdf` renomeado de um executável passaria pela validação. O frontend também não verifica o MIME type (`file.type`).
-**Correção sugerida:** Verificar os magic bytes do arquivo (ex: `%PDF` para PDFs, `PK` para DOCX).
-
----
-
-### 🟡 SEC-07 — Sem limite de sessões concorrentes
-**Arquivo:** `backend/app/api/router.py`
-Os dicionários `_sessions` e `_progress_queues` crescem indefinidamente. Um ataque de negação de serviço poderia criar milhares de sessões esgotando memória e disco.
-**Correção sugerida:** Implementar um limite máximo de sessões ativas e retornar `429 Too Many Requests` quando excedido.
-
----
-
-## 2. Robustez e Tratamento de Erros
+## 1. Robustez e Tratamento de Erros
 
 ### 🟠 ERR-01 — Sem retry/backoff nas chamadas LLM
 **Arquivo:** `backend/app/agents/base_agent.py`
@@ -113,7 +62,7 @@ Se o servidor parar de enviar eventos (pipeline travou), o cliente aguarda indef
 
 ---
 
-## 3. Performance
+## 2. Performance
 
 ### 🟠 PERF-01 — Jinja2 Environment recriado a cada chamada
 **Arquivo:** `backend/app/services/pdf_generator.py`
@@ -143,7 +92,7 @@ O CSS é servido como arquivo único e não minificado. Contém CSS morto (ex: c
 
 ---
 
-## 4. Acessibilidade (A11y)
+## 3. Acessibilidade (A11y)
 
 ### 🟠 A11Y-01 — Barra de progresso sem atributos ARIA
 **Arquivo:** `frontend/js/progress.js`
@@ -194,7 +143,7 @@ Nenhum dos documentos HTML possui o atributo `lang="pt-BR"`, prejudicando leitor
 
 ---
 
-## 5. Cobertura de Testes
+## 4. Cobertura de Testes
 
 ### 🔴 TEST-01 — Geração de PDF sem cobertura de testes
 **Arquivo:** `backend/app/services/pdf_generator.py`
@@ -245,7 +194,7 @@ Os dicionários `_sessions` e `_progress_queues` são globais no módulo. Testes
 
 ---
 
-## 6. Qualidade de Código e Manutenibilidade
+## 5. Qualidade de Código e Manutenibilidade
 
 ### 🟠 CODE-01 — Padrão de config com classe `Config` depreciado (Pydantic v2)
 **Arquivo:** `backend/app/api/schemas.py`
@@ -303,7 +252,7 @@ Sem `.dockerignore`, arquivos desnecessários (`.git`, `docs/`, `tests/`, `__pyc
 
 ---
 
-## 7. Infraestrutura e Observabilidade
+## 6. Infraestrutura e Observabilidade
 
 ### 🟡 INFRA-01 — Sem HEALTHCHECK no Dockerfile
 **Arquivo:** `Dockerfile`
@@ -340,7 +289,7 @@ Nenhuma política de reinicialização está configurada. Se o container falhar,
 
 ---
 
-## 8. Internacionalização (i18n)
+## 7. Internacionalização (i18n)
 
 ### 🟡 I18N-01 — Strings da interface hardcoded em português
 **Arquivo:** `frontend/index.html`, `frontend/js/app.js`
@@ -363,37 +312,7 @@ A meta tag de descrição está em inglês ("AI-powered resume optimizer...") en
 
 ---
 
-## 9. Segurança Adicional
-
-### 🔴 SEC-08 — Path Traversal via session_id
-**Arquivos:** `backend/app/services/temp_storage.py`, `backend/app/api/router.py`
-O `session_id` recebido nos endpoints `/progress/{session_id}` e `/download/{session_id}/{job_index}` é concatenado diretamente ao caminho do diretório temporário via `Path(temp_dir) / session_id` sem nenhuma validação. Um `session_id` malicioso como `../../etc/passwd` poderia acessar arquivos fora do diretório temporário.
-**Correção sugerida:** Validar que o `session_id` corresponde ao padrão UUID hex (`^[a-f0-9]{32}$`) antes de qualquer operação de I/O.
-
----
-
-### 🟠 SEC-09 — Ausência de autenticação em todos os endpoints
-**Arquivo:** `backend/app/api/router.py`
-Nenhum endpoint possui autenticação (API key, JWT, OAuth). Qualquer pessoa pode submeter currículos, consumir tokens da LLM e fazer download de PDFs gerados.
-**Correção sugerida:** Implementar ao menos rate limiting por IP e, idealmente, autenticação por API key para o endpoint `/analyze`.
-
----
-
-### 🟠 SEC-10 — CORS excessivamente permissivo
-**Arquivo:** `backend/app/main.py`
-`allow_methods=["*"]` e `allow_headers=["*"]` liberam todos os métodos e cabeçalhos HTTP. Apenas `GET` e `POST` são necessários.
-**Correção sugerida:** Restringir a `allow_methods=["GET", "POST"]` e `allow_headers=["Content-Type"]`.
-
----
-
-### 🟡 SEC-11 — Exposição de detalhes de exceção no SSE
-**Arquivo:** `backend/app/api/router.py`
-O `str(exc)` da exceção capturada no pipeline é enviado diretamente ao cliente no evento SSE `error`. Isso pode expor caminhos internos, nomes de módulos e detalhes de configuração.
-**Correção sugerida:** Retornar uma mensagem genérica ao cliente e logar o traceback completo internamente.
-
----
-
-## 10. Performance Adicional
+## 8. Performance Adicional
 
 ### 🟠 PERF-05 — Parsing de documentos bloqueia o event loop
 **Arquivo:** `backend/app/services/document_parser.py`
@@ -409,7 +328,7 @@ No modo `per_job`, todas as otimizações rodam via `asyncio.gather` sem semáfo
 
 ---
 
-## 11. Código Morto e Dependências Obsoletas
+## 9. Código Morto e Dependências Obsoletas
 
 ### 🟡 DEAD-01 — Dependency Injection não utilizada
 **Arquivo:** `backend/app/api/dependencies.py`
@@ -432,7 +351,7 @@ O Materialize CSS (v1.0.0, última release em 2018) está depreciado. O CSS do p
 
 ---
 
-## 12. Acessibilidade Adicional
+## 10. Acessibilidade Adicional
 
 ### 🟡 A11Y-08 — Sem suporte a `prefers-reduced-motion`
 **Arquivo:** `frontend/css/style.css`
@@ -455,7 +374,7 @@ A função `escapeHtml()` existe apenas em `results.js` e não é exportada. Out
 
 ---
 
-## 13. Cobertura de Testes — Mapa Detalhado
+## 11. Cobertura de Testes — Mapa Detalhado
 
 | Módulo | Cobertura | Nota |
 |---|---|---|
@@ -479,8 +398,8 @@ A função `escapeHtml()` existe apenas em `results.js` e não é exportada. Out
 
 | Severidade | Quantidade |
 |---|---|
-| 🔴 Crítico | 6 |
-| 🟠 Alto | 16 |
-| 🟡 Médio | 26 |
+| 🔴 Crítico | 2 |
+| 🟠 Alto | 10 |
+| 🟡 Médio | 22 |
 | 🟢 Baixo | 4 |
-| **Total** | **52** |
+| **Total** | **38** |
