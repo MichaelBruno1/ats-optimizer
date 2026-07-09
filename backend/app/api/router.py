@@ -131,7 +131,7 @@ async def _run_pipeline(
 
         resume_agent = ResumeAnalystAgent()
         resume_analysis: ResumeAnalysis = await asyncio.wait_for(
-            resume_agent.analyze(resume_text), timeout=120.0
+            resume_agent.analyze(resume_text), timeout=settings.llm_timeout
         )
 
         await _publish(
@@ -155,7 +155,7 @@ async def _run_pipeline(
             job_agent.analyze(job, idx) for idx, job in enumerate(jobs)
         ]
         job_analyses: list[JobAnalysis] = await asyncio.wait_for(
-            asyncio.gather(*job_tasks), timeout=120.0
+            asyncio.gather(*job_tasks), timeout=settings.llm_timeout
         )
         # Ensure order by index
         job_analyses.sort(key=lambda ja: ja.job_index)
@@ -186,7 +186,7 @@ async def _run_pipeline(
                     job_analyses=job_analyses,
                     original_resume_text=resume_text,
                 ),
-                timeout=120.0
+                timeout=settings.llm_timeout
             )
             optimized_resumes.append(optimized)
         else:  # per_job
@@ -199,7 +199,7 @@ async def _run_pipeline(
                 for ja in job_analyses
             ]
             optimized_resumes = list(
-                await asyncio.wait_for(asyncio.gather(*opt_tasks), timeout=120.0)
+                await asyncio.wait_for(asyncio.gather(*opt_tasks), timeout=settings.llm_timeout)
             )
 
         await _publish(
@@ -414,7 +414,7 @@ async def progress(session_id: str) -> StreamingResponse:
         """Consume the session queue and yield SSE-formatted strings."""
         try:
             while True:
-                item = await asyncio.wait_for(queue.get(), timeout=120.0)
+                item = await asyncio.wait_for(queue.get(), timeout=settings.llm_timeout)
 
                 if item is _DONE_SENTINEL:
                     deregister_queue(session_id)

@@ -97,6 +97,7 @@ Todas as configurações são carregadas de variáveis de ambiente ou do arquivo
 | `LLM_API_BASE` | _(vazio)_ | URL base personalizada (para Ollama ou gateways compatíveis com OpenAI) |
 | `LLM_TEMPERATURE` | `0.3` | Temperatura de amostragem (0.0 a 1.0) |
 | `LLM_MAX_TOKENS` | `4096` | Limite de tokens de saída por chamada do LLM |
+| `LLM_TIMEOUT` | `120.0` | Tempo limite em segundos para respostas de chamadas de LLM |
 | `MAX_FILE_SIZE_MB` | `5` | Tamanho máximo permitido para o upload de currículos |
 | `MAX_JOBS` | `3` | Quantidade máxima de vagas processadas por requisição |
 | `TEMP_DIR` | `/tmp/ats_optimizer` | Diretório de armazenamento temporário de sessões |

@@ -89,7 +89,7 @@ app = FastAPI(
         "AI-powered resume optimization service that analyzes job descriptions "
         "and tailors resumes for maximum ATS compatibility."
     ),
-    version="1.1.1",
+    version="1.1.2",
     docs_url="/api/docs",
     redoc_url="/api/redoc",
     openapi_url="/api/openapi.json",
