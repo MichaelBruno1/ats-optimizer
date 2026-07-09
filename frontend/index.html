@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ATS Optimizer — Otimize seu Currículo para ATS</title>
+  <meta name="description" content="Analise e otimize seu currículo para sistemas ATS. Aumente sua compatibilidade com vagas e consiga mais entrevistas." />
+
+  <!-- Materialize CSS -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" />
+  <!-- Material Icons -->
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
+  <!-- Google Fonts Inter -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <div class="app-container">
+
+    <!-- ===== APP HEADER ===== -->
+    <header class="app-header">
+      <div class="app-logo">
+        <span class="material-icons logo-icon">auto_awesome</span>
+        ATS Optimizer
+      </div>
+      <p class="app-tagline">Otimize seu currículo para sistemas ATS e conquiste mais entrevistas</p>
+    </header>
+
+    <!-- ===== STEPPER (shown on steps 1–4) ===== -->
+    <nav class="stepper" id="stepper" aria-label="Progresso do wizard">
+      <div class="step-indicator active" id="step-ind-1" aria-label="Etapa 1: Upload">1</div>
+      <div class="step-connector"></div>
+      <div class="step-indicator" id="step-ind-2" aria-label="Etapa 2: Vagas">2</div>
+      <div class="step-connector"></div>
+      <div class="step-indicator" id="step-ind-3" aria-label="Etapa 3: Modo">3</div>
+      <div class="step-connector"></div>
+      <div class="step-indicator" id="step-ind-4" aria-label="Etapa 4: Processando">4</div>
+    </nav>
+
+    <!-- ===================================================
+         ETAPA 1 — Upload do Currículo
+    =================================================== -->
+    <section class="wizard-step active" id="step-1" aria-label="Etapa 1: Upload do currículo">
+
+      <div class="step-title-block">
+        <h1 class="step-title">Envie seu currículo</h1>
+        <p class="step-subtitle">Vamos analisar e otimizar seu currículo para as vagas que você escolher</p>
+      </div>
+
+      <!-- Drop Zone -->
+      <div class="drop-zone" id="drop-zone" role="button" tabindex="0" aria-label="Área de upload — clique ou arraste seu currículo">
+        <!-- Estado: sem arquivo -->
+        <div class="drop-zone-empty" id="dz-empty">
+          <span class="material-icons upload-icon">upload_file</span>
+          <p class="dz-title">Arraste seu currículo aqui</p>
+          <p class="dz-subtitle">PDF, DOCX ou TXT — até 5MB</p>
+          <button class="btn btn-primary waves-effect waves-light" id="btn-select-file" type="button">
+            <span class="material-icons left">folder_open</span>Selecionar arquivo
+          </button>
+          <input type="file" id="file-input" accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" hidden aria-label="Selecionar arquivo de currículo" />
+        </div>
+
+        <!-- Estado: com arquivo -->
+        <div class="drop-zone-filled" id="dz-filled" hidden>
+          <div class="file-preview">
+            <div class="file-preview-icon-wrap">
+              <span class="material-icons file-type-icon" id="file-type-icon">description</span>
+            </div>
+            <div class="file-preview-info">
+              <p class="file-name" id="file-name">documento.pdf</p>
+              <p class="file-size" id="file-size">0 KB</p>
+            </div>
+            <button class="btn-icon btn-remove-file waves-effect" id="btn-remove-file" type="button" aria-label="Remover arquivo">
+              <span class="material-icons">close</span>
+            </button>
+          </div>
+          <p class="file-ok-msg">
+            <span class="material-icons" style="font-size:16px;vertical-align:middle;color:var(--pastel-secondary)">check_circle</span>
+            Arquivo pronto para análise
+          </p>
+        </div>
+      </div>
+
+      <!-- Validation message -->
+      <p class="validation-msg" id="upload-validation-msg" role="alert" aria-live="polite"></p>
+
+      <!-- Config info -->
+      <div class="config-info" id="config-info" hidden>
+        <span class="material-icons" style="font-size:14px;vertical-align:middle">info</span>
+        <span id="config-info-text"></span>
+      </div>
+
+      <!-- Navigation -->
+      <div class="step-nav step-nav-right">
+        <button class="btn btn-primary waves-effect waves-light" id="btn-step1-next" type="button" disabled aria-disabled="true">
+          Próximo — Vagas
+          <span class="material-icons right">arrow_forward</span>
+        </button>
+      </div>
+
+    </section>
+
+    <!-- ===================================================
+         ETAPA 2 — Informações das Vagas
+    =================================================== -->
+    <section class="wizard-step" id="step-2" aria-label="Etapa 2: Informações das vagas">
+
+      <div class="step-title-block">
+        <h2 class="step-title">Para quais vagas?</h2>
+        <p class="step-subtitle">Adicione as vagas que deseja otimizar seu currículo. Quanto mais detalhada a descrição, melhor o resultado.</p>
+      </div>
+
+      <!-- Header actions -->
+      <div class="jobs-header">
+        <p class="jobs-count-label"><span id="jobs-count">0</span> / 10 vagas adicionadas</p>
+        <button class="btn btn-secondary waves-effect waves-light" id="btn-add-job" type="button" aria-label="Adicionar nova vaga">
+          <span class="material-icons left">add</span>Adicionar Vaga
+        </button>
+      </div>
+
+      <!-- Jobs list -->
+      <div id="jobs-list" role="list" aria-label="Lista de vagas"></div>
+
+      <!-- Validation -->
+      <p class="validation-msg" id="jobs-validation-msg" role="alert" aria-live="polite"></p>
+
+      <!-- Navigation -->
+      <div class="step-nav step-nav-both">
+        <button class="btn btn-outline waves-effect" id="btn-step2-back" type="button">
+          <span class="material-icons left">arrow_back</span>Voltar
+        </button>
+        <button class="btn btn-primary waves-effect waves-light" id="btn-step2-next" type="button" disabled aria-disabled="true">
+          Próximo — Modo de Saída
+          <span class="material-icons right">arrow_forward</span>
+        </button>
+      </div>
+
+    </section>
+
+    <!-- ===================================================
+         ETAPA 3 — Modo de Saída
+    =================================================== -->
+    <section class="wizard-step" id="step-3" aria-label="Etapa 3: Modo de saída">
+
+      <div class="step-title-block">
+        <h2 class="step-title">Como você prefere receber o resultado?</h2>
+        <p class="step-subtitle">Escolha como deseja que o currículo otimizado seja gerado</p>
+      </div>
+
+      <!-- Mode cards -->
+      <div class="mode-cards-grid">
+
+        <div class="mode-card selected" id="mode-card-single" role="radio" tabindex="0" aria-checked="true" aria-label="Modo: Currículo Único">
+          <div class="mode-card-check" aria-hidden="true">
+            <span class="material-icons">check_circle</span>
+          </div>
+          <span class="mode-emoji" aria-hidden="true">📄</span>
+          <h3 class="mode-card-title">Currículo Único</h3>
+          <p class="mode-card-desc">Um currículo otimizado para todas as vagas informadas, balanceando as palavras-chave de cada uma.</p>
+          <div class="mode-card-badge">Recomendado</div>
+        </div>
+
+        <div class="mode-card" id="mode-card-per-job" role="radio" tabindex="0" aria-checked="false" aria-label="Modo: Um por Vaga">
+          <div class="mode-card-check" aria-hidden="true">
+            <span class="material-icons">check_circle</span>
+          </div>
+          <span class="mode-emoji" aria-hidden="true">📋</span>
+          <h3 class="mode-card-title">Um por Vaga</h3>
+          <p class="mode-card-desc">Um currículo altamente focado para cada vaga, maximizando a compatibilidade individual.</p>
+          <div class="mode-card-badge mode-card-badge-alt">Máxima precisão</div>
+        </div>
+
+      </div>
+
+      <!-- Navigation -->
+      <div class="step-nav step-nav-both">
+        <button class="btn btn-outline waves-effect" id="btn-step3-back" type="button">
+          <span class="material-icons left">arrow_back</span>Voltar
+        </button>
+        <button class="btn btn-cta waves-effect waves-light" id="btn-optimize" type="button">
+          <span class="material-icons left">auto_awesome</span>
+          Otimizar Currículo
+          <span class="material-icons right">arrow_forward</span>
+        </button>
+      </div>
+
+    </section>
+
+    <!-- ===================================================
+         ETAPA 4 — Processando
+    =================================================== -->
+    <section class="wizard-step" id="step-4" aria-label="Etapa 4: Processando">
+
+      <div class="step-title-block" style="text-align:center">
+        <h2 class="step-title processing-title">Otimizando seu currículo...</h2>
+        <p class="step-subtitle">Nossa IA está analisando e otimizando seu currículo. Isso pode levar alguns segundos.</p>
+      </div>
+
+      <!-- AI loading animation -->
+      <div class="ai-loading-container">
+        <div class="ai-loading-icon loading-icon" aria-hidden="true">
+          <span class="material-icons ai-icon">psychology</span>
+          <div class="ai-rings">
+            <div class="ai-ring ai-ring-1"></div>
+            <div class="ai-ring ai-ring-2"></div>
+            <div class="ai-ring ai-ring-3"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Progress bar -->
+      <div class="progress-section">
+        <div class="progress-header">
+          <span class="progress-label" id="progress-status-msg">Iniciando processamento...</span>
+          <span class="progress-pct" id="progress-pct">0%</span>
+        </div>
+        <div class="progress" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="Progresso da análise">
+          <div class="determinate" id="progress-bar" style="width:0%"></div>
+        </div>
+      </div>
+
+      <!-- Step checklist -->
+      <div class="checklist-card card">
+        <h3 class="checklist-title">Etapas do processo</h3>
+        <ul class="checklist" role="list" aria-label="Etapas do processamento">
+          <li class="checklist-item" id="check-extract" data-step="extract">
+            <div class="check-icon-wrap"><span class="material-icons check-icon">radio_button_unchecked</span></div>
+            <span class="check-label">Extraindo texto do currículo</span>
+          </li>
+          <li class="checklist-item" id="check-analyze-resume" data-step="analyze_resume">
+            <div class="check-icon-wrap"><span class="material-icons check-icon">radio_button_unchecked</span></div>
+            <span class="check-label">Analisando currículo</span>
+          </li>
+          <li class="checklist-item" id="check-analyze-jobs" data-step="analyze_jobs">
+            <div class="check-icon-wrap"><span class="material-icons check-icon">radio_button_unchecked</span></div>
+            <span class="check-label">Analisando vaga(s)</span>
+          </li>
+          <li class="checklist-item" id="check-optimize" data-step="optimize">
+            <div class="check-icon-wrap"><span class="material-icons check-icon">radio_button_unchecked</span></div>
+            <span class="check-label">Otimizando currículo</span>
+          </li>
+          <li class="checklist-item" id="check-generate-pdf" data-step="generate_pdf">
+            <div class="check-icon-wrap"><span class="material-icons check-icon">radio_button_unchecked</span></div>
+            <span class="check-label">Gerando PDF(s)</span>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Error state -->
+      <div class="error-card card" id="processing-error" hidden role="alert">
+        <div class="error-icon-wrap">
+          <span class="material-icons error-icon">error_outline</span>
+        </div>
+        <div class="error-content">
+          <h3>Ocorreu um erro</h3>
+          <p id="processing-error-msg">Não foi possível processar seu currículo. Tente novamente.</p>
+          <button class="btn btn-outline waves-effect" id="btn-retry" type="button">
+            <span class="material-icons left">refresh</span>Tentar novamente
+          </button>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ===================================================
+         ETAPA 5 — Resultados
+    =================================================== -->
+    <section class="wizard-step" id="step-5" aria-label="Etapa 5: Resultados">
+
+      <div class="step-title-block" style="text-align:center">
+        <div class="results-badge">
+          <span class="material-icons">check_circle</span>
+          Análise Concluída
+        </div>
+        <h2 class="step-title">Seu currículo foi otimizado!</h2>
+        <p class="step-subtitle">Confira a análise detalhada e baixe seu currículo otimizado</p>
+      </div>
+
+      <!-- ---- Seção 1: Análise do Currículo ---- -->
+      <div class="results-section" id="section-resume-analysis">
+        <div class="section-header">
+          <span class="material-icons section-icon">analytics</span>
+          <h3 class="section-title">Análise do Seu Currículo</h3>
+        </div>
+
+        <!-- Score + columns -->
+        <div class="analysis-top card">
+          <div class="score-area">
+            <div class="score-circle-container" id="score-circle-container">
+              <div class="score-circle" id="score-circle-wrapper">
+                <svg width="140" height="140" viewBox="0 0 140 140" id="score-svg" aria-label="Score ATS">
+                  <circle class="score-bg-circle" cx="70" cy="70" r="58" fill="none" stroke-width="10" />
+                  <circle class="score-fg-circle" id="score-fg-circle" cx="70" cy="70" r="58" fill="none" stroke-width="10"
+                          stroke-dasharray="364.42" stroke-dashoffset="364.42" stroke-linecap="round" />
+                </svg>
+                <div class="score-center">
+                  <span class="score-number" id="ats-score-number">0</span>
+                  <span class="score-label">Score ATS</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="analysis-columns" id="analysis-columns">
+            <!-- Rendered by results.js -->
+          </div>
+        </div>
+      </div>
+
+      <!-- ---- Seção 2: Análise das Vagas ---- -->
+      <div class="results-section" id="section-jobs-analysis">
+        <div class="section-header">
+          <span class="material-icons section-icon">work_outline</span>
+          <h3 class="section-title">Análise das Vagas</h3>
+        </div>
+        <ul class="collapsible" id="jobs-accordion" role="list">
+          <!-- Rendered by results.js -->
+        </ul>
+      </div>
+
+      <!-- ---- Seção 3: Downloads ---- -->
+      <div class="results-section" id="section-downloads">
+        <div class="section-header">
+          <span class="material-icons section-icon">download</span>
+          <h3 class="section-title">Currículos Otimizados</h3>
+        </div>
+        <div id="downloads-container">
+          <!-- Rendered by results.js -->
+        </div>
+      </div>
+
+      <!-- New analysis button -->
+      <div class="step-nav step-nav-center" style="margin-top:32px;">
+        <button class="btn btn-outline waves-effect" id="btn-new-analysis" type="button">
+          <span class="material-icons left">refresh</span>Nova Análise
+        </button>
+      </div>
+
+    </section>
+
+  </div><!-- /.app-container -->
+
+  <!-- Toast container (Materialize handles this automatically) -->
+
+  <!-- Materialize JS -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+  <!-- App modules -->
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
