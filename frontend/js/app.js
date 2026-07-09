@@ -249,6 +249,7 @@ async function handleAnalyze() {
     }
   } catch (err) {
     handleError(err.message || 'Erro ao iniciar a análise.');
+    return;
   }
 }
 

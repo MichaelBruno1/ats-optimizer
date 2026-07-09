@@ -33,6 +33,7 @@ const STEP_ID_MAP = {
 /* ------------------------------------------------------------------ */
 let activeEventSource = null;
 let completedSteps    = new Set();
+let inactivityTimeoutId = null;
 
 /* ------------------------------------------------------------------ */
 /*  DOM helpers                                                         */
@@ -172,12 +173,28 @@ export function startProgress(sessionId, onComplete, onError) {
 
   let hasFinished = false;
 
+  function resetInactivityTimeout() {
+    if (inactivityTimeoutId) clearTimeout(inactivityTimeoutId);
+    inactivityTimeoutId = setTimeout(() => {
+      if (hasFinished) return;
+      hasFinished = true;
+      stopProgress();
+      const timeoutMsg = 'O servidor demorou muito para responder (tempo limite de 120s excedido). Tente novamente.';
+      showProcessingError(timeoutMsg);
+      onError(timeoutMsg);
+    }, 120000); // 120 seconds
+  }
+
+  // Set initial inactivity timer
+  resetInactivityTimeout();
+
   activeEventSource = api.connectProgress(
     sessionId,
 
     // onProgress
     ({ step, progress, message }) => {
       if (hasFinished) return;
+      resetInactivityTimeout(); // Reset timer on activity
       if (typeof progress === 'number') updateProgressBar(progress);
       if (message) updateStatusMessage(message);
       if (step)    updateStepChecklist(step);
@@ -187,6 +204,10 @@ export function startProgress(sessionId, onComplete, onError) {
     (data) => {
       if (hasFinished) return;
       hasFinished = true;
+      if (inactivityTimeoutId) {
+        clearTimeout(inactivityTimeoutId);
+        inactivityTimeoutId = null;
+      }
       // Mark all steps done and fill bar
       STEP_ORDER.forEach((s) => {
         const el = document.getElementById(STEP_ID_MAP[s]);
@@ -209,6 +230,10 @@ export function startProgress(sessionId, onComplete, onError) {
     (errMsg) => {
       if (hasFinished) return;
       hasFinished = true;
+      if (inactivityTimeoutId) {
+        clearTimeout(inactivityTimeoutId);
+        inactivityTimeoutId = null;
+      }
       activeEventSource = null;
       showProcessingError(errMsg);
       onError(errMsg);
@@ -220,6 +245,10 @@ export function startProgress(sessionId, onComplete, onError) {
  * Disconnect the EventSource (if active).
  */
 export function stopProgress() {
+  if (inactivityTimeoutId) {
+    clearTimeout(inactivityTimeoutId);
+    inactivityTimeoutId = null;
+  }
   if (activeEventSource) {
     activeEventSource.close();
     activeEventSource = null;

@@ -130,7 +130,9 @@ async def _run_pipeline(
         )
 
         resume_agent = ResumeAnalystAgent()
-        resume_analysis: ResumeAnalysis = await resume_agent.analyze(resume_text)
+        resume_analysis: ResumeAnalysis = await asyncio.wait_for(
+            resume_agent.analyze(resume_text), timeout=120.0
+        )
 
         await _publish(
             queue, "progress",
@@ -152,7 +154,9 @@ async def _run_pipeline(
         job_tasks = [
             job_agent.analyze(job, idx) for idx, job in enumerate(jobs)
         ]
-        job_analyses: list[JobAnalysis] = await asyncio.gather(*job_tasks)
+        job_analyses: list[JobAnalysis] = await asyncio.wait_for(
+            asyncio.gather(*job_tasks), timeout=120.0
+        )
         # Ensure order by index
         job_analyses.sort(key=lambda ja: ja.job_index)
 
@@ -176,10 +180,13 @@ async def _run_pipeline(
         optimized_resumes: list[OptimizedResume] = []
 
         if output_mode == "single":
-            optimized = await optimizer.optimize_single(
-                resume_analysis=resume_analysis,
-                job_analyses=job_analyses,
-                original_resume_text=resume_text,
+            optimized = await asyncio.wait_for(
+                optimizer.optimize_single(
+                    resume_analysis=resume_analysis,
+                    job_analyses=job_analyses,
+                    original_resume_text=resume_text,
+                ),
+                timeout=120.0
             )
             optimized_resumes.append(optimized)
         else:  # per_job
@@ -191,7 +198,9 @@ async def _run_pipeline(
                 )
                 for ja in job_analyses
             ]
-            optimized_resumes = list(await asyncio.gather(*opt_tasks))
+            optimized_resumes = list(
+                await asyncio.wait_for(asyncio.gather(*opt_tasks), timeout=120.0)
+            )
 
         await _publish(
             queue, "progress",

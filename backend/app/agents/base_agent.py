@@ -5,8 +5,10 @@ communicate with the configured LLM via LiteLLM.  Retry logic, JSON
 extraction, and error handling are centralised here.
 """
 
+import asyncio
 import json
 import logging
+import random
 import re
 from pathlib import Path
 from typing import Any
@@ -189,16 +191,31 @@ class BaseAgent:
                 )
                 break  # Success
             except Exception as exc:
-                new_tokens = int(current_max_tokens * 0.65)
-                if new_tokens >= 800 and attempt < 2:
+                if attempt < 2:
+                    exc_str = str(exc).lower()
+                    # If it's a context size issue, reduce max_tokens
+                    if "context size" in exc_str or "400" in exc_str or "bad request" in exc_str:
+                        new_tokens = int(current_max_tokens * 0.65)
+                        if new_tokens >= 800:
+                            logger.warning(
+                                "LLM call failed for %s (context size). Retrying with reduced max_tokens=%d. Error: %s",
+                                self.__class__.__name__,
+                                new_tokens,
+                                str(exc)
+                            )
+                            current_max_tokens = new_tokens
+                            continue
+
+                    # Exponential backoff delay with jitter
+                    delay = (2 ** attempt) + random.uniform(0.1, 0.5)
                     logger.warning(
-                        "LLM call failed for %s with max_tokens=%d. Retrying with reduced max_tokens=%d. Error: %s",
+                        "LLM call failed for %s. Retrying attempt %d/3 in %.2fs. Error: %s",
                         self.__class__.__name__,
-                        current_max_tokens,
-                        new_tokens,
+                        attempt + 2,
+                        delay,
                         str(exc)
                     )
-                    current_max_tokens = new_tokens
+                    await asyncio.sleep(delay)
                 else:
                     logger.exception("LLM call failed for %s after all retry attempts", self.__class__.__name__)
                     raise AgentError(f"LLM invocation failed: {exc}") from exc
@@ -229,43 +246,51 @@ class BaseAgent:
         Raises:
             AgentError: If valid JSON cannot be extracted from the response.
         """
-        # Strip markdown code fences if present
         cleaned = raw.strip()
-        fence_pattern = re.compile(r"```(?:json)?\s*([\s\S]*?)```", re.IGNORECASE)
-        match = fence_pattern.search(cleaned)
-        if match:
-            cleaned = match.group(1).strip()
 
+        # 1. Try parsing the entire cleaned string first
         try:
             return json.loads(cleaned)
         except json.JSONDecodeError:
-            # Last-resort: find the first '{' and last '}' and try parsing that
-            start = cleaned.find("{")
-            end = cleaned.rfind("}")
-            if start != -1 and end != -1 and end > start:
-                try:
-                    return json.loads(cleaned[start : end + 1])
-                except json.JSONDecodeError:
-                    pass
+            pass
 
-            # Backtracking recovery for truncated JSON (e.g. from context size limits)
-            if start != -1:
-                candidate_base = cleaned[start:]
-                # Iterate backwards to find a point where we can repair
-                for i in range(len(candidate_base), 0, -1):
-                    trimmed = candidate_base[:i].strip()
-                    # Try different closing bracket combinations to find a valid one
-                    for suffix in ("", "}", '"}', '"]}', '"}]}', ']}', ']', '"]'):
-                        try:
-                            parsed = json.loads(trimmed + suffix)
-                            if isinstance(parsed, dict):
-                                logger.warning(
-                                    "Successfully repaired truncated JSON response by backtracking (trimmed %d chars).",
-                                    len(candidate_base) - i
-                                )
-                                return parsed
-                        except json.JSONDecodeError:
-                            pass
+        # 2. Try extracting from markdown code fences and validate with json.loads
+        fence_pattern = re.compile(r"```(?:json)?\s*([\s\S]*?)```", re.IGNORECASE)
+        match = fence_pattern.search(raw)
+        if match:
+            fence_content = match.group(1).strip()
+            try:
+                return json.loads(fence_content)
+            except json.JSONDecodeError:
+                pass
+
+        # 3. Last-resort: find the first '{' and last '}' in the entire raw string
+        start = raw.find("{")
+        end = raw.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            try:
+                return json.loads(raw[start : end + 1])
+            except json.JSONDecodeError:
+                pass
+
+        # 4. Backtracking recovery for truncated JSON (e.g. from context size limits)
+        if start != -1:
+            candidate_base = raw[start:]
+            # Iterate backwards to find a point where we can repair
+            for i in range(len(candidate_base), 0, -1):
+                trimmed = candidate_base[:i].strip()
+                # Try different closing bracket combinations to find a valid one
+                for suffix in ("", "}", '"}', '"]}', '"}]}', ']}', ']', '"]'):
+                    try:
+                        parsed = json.loads(trimmed + suffix)
+                        if isinstance(parsed, dict):
+                            logger.warning(
+                                "Successfully repaired truncated JSON response by backtracking (trimmed %d chars).",
+                                len(candidate_base) - i
+                            )
+                            return parsed
+                    except json.JSONDecodeError:
+                        pass
 
         logger.error(
             "JSON parsing failed. Raw response length: %d. Start: %r... End: %r",

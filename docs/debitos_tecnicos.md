@@ -11,58 +11,14 @@
 
 ---
 
-## 1. Robustez e Tratamento de Erros
-
-### 🟠 ERR-01 — Sem retry/backoff nas chamadas LLM
-**Arquivo:** `backend/app/agents/base_agent.py`
-O método `_invoke` não implementa lógica de retry com backoff exponencial. Erros transitórios (timeout de rede, rate limiting 429) resultam em falha imediata do pipeline inteiro.
-**Correção sugerida:** Implementar retry com backoff exponencial (ex: `tenacity` ou lógica manual) para erros transitórios.
-
----
-
-### 🟠 ERR-02 — Sem timeout nas chamadas LLM
-**Arquivo:** `backend/app/api/router.py`
-A função `_run_pipeline` executa chamadas à LLM sem timeout. Se a LLM travar, a sessão ficará pendente indefinidamente sem feedback ao usuário.
-**Correção sugerida:** Envolver as chamadas em `asyncio.wait_for()` com um timeout configurável.
-
----
-
-### 🟠 ERR-03 — Captura genérica de exceções (bare except)
-**Arquivos:** `backend/app/api/router.py`, `backend/app/agents/base_agent.py`, `backend/app/services/pdf_generator.py`
-Vários blocos `except Exception` capturam exceções amplas demais, incluindo `KeyboardInterrupt` e `SystemExit`.
-**Correção sugerida:** Capturar exceções específicas e re-levantar exceções de sistema.
-
----
-
-### 🟡 ERR-04 — Parsing de JSON via regex é frágil
-**Arquivo:** `backend/app/agents/base_agent.py`
-O fallback que tenta extrair JSON de blocos de código markdown utiliza regex, que pode casar com JSON parcial ou incompleto.
-**Correção sugerida:** Utilizar um parser JSON streaming ou validar o resultado extraído com `json.loads` dentro de um try/except explícito.
-
----
-
-### 🟡 ERR-05 — Continuação de execução após falha no frontend
-**Arquivo:** `frontend/js/app.js`
-Na função `submitForOptimization()`, se a chamada API falhar dentro do `catch`, o fluxo pode continuar executando linhas subsequentes que acessam `data.session_id` (indefinido).
-**Correção sugerida:** Garantir que o `return` dentro do `catch` encerre a função completamente.
-
----
-
-### 🟡 ERR-06 — Sem timeout de inatividade no SSE do frontend
-**Arquivo:** `frontend/js/progress.js`
-Se o servidor parar de enviar eventos (pipeline travou), o cliente aguarda indefinidamente sem feedback.
-**Correção sugerida:** Implementar um timer de inatividade (ex: 120s sem eventos) que exiba um aviso ao usuário.
-
----
-
-## 2. Performance
+## 1. Performance
 
 ### 🟡 PERF-01 — CSS não minificado (1323 linhas)
 **Arquivo:** `frontend/css/style.css`
 O CSS é servido como arquivo único e não minificado. Contém CSS morto (ex: classe `.ats-badge` removida do template mas ainda definida no stylesheet).
 **Correção sugerida:** Remover CSS não utilizado e considerar minificação no processo de build.
 
-## 3. Qualidade de Código e Manutenibilidade
+## 2. Qualidade de Código e Manutenibilidade
 
 ### 🟠 CODE-01 — Padrão de config com classe `Config` depreciado (Pydantic v2)
 **Arquivo:** `backend/app/api/schemas.py`
@@ -120,7 +76,7 @@ Sem `.dockerignore`, arquivos desnecessários (`.git`, `docs/`, `tests/`, `__pyc
 
 ---
 
-## 5. Infraestrutura e Observabilidade
+## 3. Infraestrutura e Observabilidade
 
 ### 🟡 INFRA-01 — Sem HEALTHCHECK no Dockerfile
 **Arquivo:** `Dockerfile`
@@ -157,7 +113,7 @@ Nenhuma política de reinicialização está configurada. Se o container falhar,
 
 ---
 
-## 5. Código Morto e Dependências Obsoletas
+## 4. Código Morto e Dependências Obsoletas
 
 ### 🟡 DEAD-01 — Dependency Injection não utilizada
 **Arquivo:** `backend/app/api/dependencies.py`
@@ -180,7 +136,7 @@ O Materialize CSS (v1.0.0, última release em 2018) está depreciado. O CSS do p
 
 ---
 
-## 6. Cobertura de Testes — Mapa Detalhado
+## 5. Cobertura de Testes — Mapa Detalhado
 
 | Módulo | Cobertura | Nota |
 |---|---|---|
@@ -205,7 +161,7 @@ O Materialize CSS (v1.0.0, última release em 2018) está depreciado. O CSS do p
 | Severidade | Quantidade |
 |---|---|
 | 🔴 Crítico | 0 |
-| 🟠 Alto | 0 |
-| 🟡 Médio | 8 |
+| 🟠 Alto | 2 |
+| 🟡 Médio | 11 |
 | 🟢 Baixo | 4 |
-| **Total** | **12** |
+| **Total** | **17** |
