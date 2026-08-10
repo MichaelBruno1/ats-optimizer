@@ -25,17 +25,8 @@ from typing import AsyncGenerator
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 
-from app.agents.job_analyst import JobAnalystAgent
-from app.agents.resume_analyst import ResumeAnalystAgent
-from app.agents.resume_optimizer import ResumeOptimizerAgent
-from app.api.schemas import (
-    AnalyzeResponse,
-    JobAnalysis,
-    JobInput,
-    OptimizationResult,
-    OptimizedResume,
-    ResumeAnalysis,
-)
+from app.api.schemas import JobInput
+from app.graph.pipeline import run_graph_pipeline
 from app.config import settings
 from app.services.document_parser import (
     DocumentParseError,
@@ -58,13 +49,8 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# Sentinel value published to a queue when processing ends
+# Re-import SSE helpers needed by the progress endpoint
 _DONE_SENTINEL = "__DONE__"
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Helper: SSE event formatting
-# ─────────────────────────────────────────────────────────────────────────────
 
 
 def _sse_event(event: str, data: dict) -> str:
@@ -78,208 +64,6 @@ def _sse_event(event: str, data: dict) -> str:
         Properly formatted SSE string with event name and data fields.
     """
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
-
-
-async def _publish(queue: asyncio.Queue, event: str, data: dict) -> None:
-    """Publish an SSE event to a session queue.
-
-    Args:
-        queue: The asyncio.Queue for the session.
-        event: SSE event type name.
-        data: Event payload.
-    """
-    await queue.put((event, data))
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Background processing pipeline
-# ─────────────────────────────────────────────────────────────────────────────
-
-
-async def _run_pipeline(
-    session_id: str,
-    resume_text: str,
-    jobs: list[JobInput],
-    output_mode: str,
-    queue: asyncio.Queue,
-) -> None:
-    """Full ATS Optimizer processing pipeline, executed as a background task.
-
-    Stages:
-      1. Resume analysis (resume analyst agent)
-      2. Job analysis — all jobs processed concurrently (job analyst agent)
-      3. Resume optimization — single or per_job mode (optimizer agent)
-      4. PDF generation for each optimized resume
-
-    Progress events are published to ``queue`` at each stage. A terminal
-    'complete' or 'error' event is always published at the end, followed by
-    the _DONE_SENTINEL to signal the SSE generator to close.
-
-    Args:
-        session_id: The session identifier used to locate temp storage.
-        resume_text: Extracted plain text from the uploaded resume.
-        jobs: List of job inputs submitted by the user.
-        output_mode: 'single' or 'per_job'.
-        queue: asyncio.Queue for publishing SSE progress events.
-    """
-    try:
-        # ── Stage 1: Resume Analysis ──────────────────────────────────────────
-        await _publish(
-            queue, "progress",
-            {"step": "resume_analysis", "progress": 5, "message": "Analisando currículo..."}
-        )
-
-        resume_agent = ResumeAnalystAgent()
-        resume_analysis: ResumeAnalysis = await asyncio.wait_for(
-            resume_agent.analyze(resume_text), timeout=settings.llm_timeout
-        )
-
-        await _publish(
-            queue, "progress",
-            {"step": "resume_analysis", "progress": 20, "message": "Análise de currículo concluída."}
-        )
-
-        # ── Stage 2: Job Analysis (concurrent) ───────────────────────────────
-        total_jobs = len(jobs)
-        await _publish(
-            queue, "progress",
-            {
-                "step": "job_analysis",
-                "progress": 25,
-                "message": f"Analisando {total_jobs} descrição(ões) de vaga...",
-            }
-        )
-
-        job_agent = JobAnalystAgent()
-        job_tasks = [
-            job_agent.analyze(job, idx) for idx, job in enumerate(jobs)
-        ]
-        job_analyses: list[JobAnalysis] = await asyncio.wait_for(
-            asyncio.gather(*job_tasks), timeout=settings.llm_timeout
-        )
-        # Ensure order by index
-        job_analyses.sort(key=lambda ja: ja.job_index)
-
-        await _publish(
-            queue, "progress",
-            {"step": "job_analysis", "progress": 50, "message": "Análise de vaga(s) concluída."}
-        )
-
-        # ── Stage 3: Optimization ─────────────────────────────────────────────
-        opt_mode_desc = "modo unificado" if output_mode == "single" else "modo por vaga"
-        await _publish(
-            queue, "progress",
-            {
-                "step": "optimization",
-                "progress": 55,
-                "message": f"Otimizando currículo ({opt_mode_desc})...",
-            }
-        )
-
-        optimizer = ResumeOptimizerAgent()
-        optimized_resumes: list[OptimizedResume] = []
-
-        if output_mode == "single":
-            optimized = await asyncio.wait_for(
-                optimizer.optimize_single(
-                    resume_analysis=resume_analysis,
-                    job_analyses=job_analyses,
-                    original_resume_text=resume_text,
-                ),
-                timeout=settings.llm_timeout
-            )
-            optimized_resumes.append(optimized)
-        else:  # per_job
-            opt_tasks = [
-                optimizer.optimize_for_job(
-                    resume_analysis=resume_analysis,
-                    job_analysis=ja,
-                    original_resume_text=resume_text,
-                )
-                for ja in job_analyses
-            ]
-            optimized_resumes = list(
-                await asyncio.wait_for(asyncio.gather(*opt_tasks), timeout=settings.llm_timeout)
-            )
-
-        await _publish(
-            queue, "progress",
-            {"step": "optimization", "progress": 75, "message": "Otimização concluída."}
-        )
-
-        # ── Stage 4: PDF Generation ────────────────────────────────────────────
-        await _publish(
-            queue, "progress",
-            {"step": "pdf_generation", "progress": 80, "message": "Gerando PDF(s)..."}
-        )
-
-        optimization_results: list[OptimizationResult] = []
-
-        for optimized in optimized_resumes:
-            # Use job_index from model or fall back to 0 for single mode
-            idx = optimized.job_index if optimized.job_index is not None else 0
-            pdf_path = get_pdf_path(session_id, idx)
-
-            # Run WeasyPrint in a thread pool to avoid blocking the event loop
-            loop = asyncio.get_event_loop()
-            await loop.run_in_executor(
-                None,
-                generate_pdf,
-                optimized,
-                pdf_path,
-                resume_analysis,
-            )
-
-            download_url = f"/api/v1/download/{session_id}/{idx}"
-            optimization_results.append(
-                OptimizationResult(
-                    job_index=optimized.job_index,
-                    download_url=download_url,
-                    changes_summary=optimized.changes_made,
-                    estimated_score_after=optimized.estimated_ats_score,
-                )
-            )
-
-        await _publish(
-            queue, "progress",
-            {"step": "pdf_generation", "progress": 95, "message": "PDF(s) gerados com sucesso."}
-        )
-
-        # ── Build final response payload ──────────────────────────────────────
-        response = AnalyzeResponse(
-            session_id=session_id,
-            resume_analysis=resume_analysis,
-            job_analyses=job_analyses,
-            optimizations=optimization_results,
-        )
-
-        # Store the serialized result so GET /progress can include it in
-        # the 'complete' event for frontends that use the SSE channel.
-        result_path = get_session_dir(session_id) / "result.json"
-        result_path.write_text(
-            response.model_dump_json(indent=2), encoding="utf-8"
-        )
-
-        await _publish(
-            queue, "complete",
-            {
-                "progress": 100,
-                "message": "Processamento concluído. Seu currículo otimizado está pronto!",
-                "session_id": session_id,
-                "result": response.model_dump(),
-            }
-        )
-
-    except Exception as exc:
-        logger.exception("Pipeline failed for session %s", session_id)
-        await _publish(
-            queue, "error",
-            {"message": f"Falha no processamento: {exc}"}
-        )
-
-    finally:
-        # Signal the SSE generator to close the stream
-        await queue.put(_DONE_SENTINEL)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -364,7 +148,7 @@ async def analyze(
 
     # ── Launch background pipeline ────────────────────────────────────────────
     asyncio.create_task(
-        _run_pipeline(
+        run_graph_pipeline(
             session_id=session_id,
             resume_text=resume_text,
             jobs=job_list,

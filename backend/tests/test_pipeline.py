@@ -4,9 +4,11 @@ import io
 import json
 import pytest
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 
 from app.api.schemas import ResumeAnalysis, JobAnalysis, OptimizedResume
+from app.domain.job import SeniorityLevel, StructuredJob
+from app.domain.resume import StructuredResume
 from app.config import settings
 from app.services.temp_storage import get_session_dir, get_pdf_path
 
@@ -22,20 +24,35 @@ async def test_full_pipeline_integration_success(
     monkeypatch
 ) -> None:
     """Test full pipeline execution: POST /analyze -> SSE progress stream -> GET /download."""
-    # Patch temp_dir to use isolated temp directory
     monkeypatch.setattr(settings, "temp_dir", str(temp_dir))
 
-    # Mock the LLM Agents
-    with patch("app.api.router.ResumeAnalystAgent.analyze") as mock_resume_analyze, \
-         patch("app.api.router.JobAnalystAgent.analyze") as mock_job_analyze, \
-         patch("app.api.router.ResumeOptimizerAgent.optimize_single") as mock_optimize, \
-         patch("app.api.router.generate_pdf") as mock_pdf_gen:
+    mock_structured_resume = StructuredResume(
+        candidate_name="Michael Bruno",
+        skills=["Python", "FastAPI"],
+        professional_summary="Desenvolvedor Python.",
+        raw_text="Candidate Profile Info",
+    )
+    mock_structured_job = StructuredJob(
+        job_index=0,
+        title="Desenvolvedor Backend Sênior",
+        required_skills=["Python", "FastAPI"],
+        ats_keywords=["Python", "FastAPI"],
+    )
 
-        mock_resume_analyze.return_value = sample_resume_analysis
-        mock_job_analyze.return_value = sample_job_analysis
+    with patch("app.graph.nodes.cv_structurer_node.CVStructurerAgent.structure_cv", new_callable=AsyncMock) as mock_cv_struct, \
+         patch("app.graph.nodes.job_analyzer_node.JobAnalystAgent.analyze", new_callable=AsyncMock) as mock_job_analyze, \
+         patch("app.graph.nodes.optimizer_node.ResumeOptimizerAgent.optimize_single", new_callable=AsyncMock) as mock_optimize, \
+         patch("app.graph.nodes.validator_node.ATSValidatorAgent.validate", new_callable=AsyncMock) as mock_validate, \
+         patch("app.graph.nodes.pdf_node.generate_pdf") as mock_pdf_gen:
+
+        mock_cv_struct.return_value = mock_structured_resume
+        mock_job_analyze.return_value = (mock_structured_job, sample_job_analysis)
         mock_optimize.return_value = sample_optimized_resume
         
-        # Mock pdf generator to write a dummy file
+        mock_val_result = MagicMock()
+        mock_val_result.approved = True
+        mock_validate.return_value = mock_val_result
+
         def fake_pdf_gen(optimized, pdf_path, resume_analysis):
             Path(pdf_path).write_bytes(b"%PDF-1.4 Mock PDF Content")
         mock_pdf_gen.side_effect = fake_pdf_gen
@@ -59,11 +76,9 @@ async def test_full_pipeline_integration_success(
         progress_events = []
         complete_event = None
         
-        # Connect to progress endpoint
         async with async_client.stream("GET", f"/api/v1/progress/{session_id}") as stream:
             assert stream.status_code == 200
             
-            # Read lines from the SSE stream
             event_type = None
             async for line in stream.aiter_lines():
                 line = line.strip()
@@ -80,7 +95,6 @@ async def test_full_pipeline_integration_success(
                     elif event_type == "error":
                         pytest.fail(f"Pipeline returned error event: {data_json}")
 
-        # Assert correct progress steps were streamed
         assert len(progress_events) > 0
         steps = [p["step"] for p in progress_events]
         assert "resume_analysis" in steps
@@ -88,12 +102,10 @@ async def test_full_pipeline_integration_success(
         assert "optimization" in steps
         assert "pdf_generation" in steps
 
-        # Assert completion event details
         assert complete_event is not None
         assert complete_event["progress"] == 100
         assert "result" in complete_event
         
-        # Validate result.json was written to disk
         result_path = get_session_dir(session_id) / "result.json"
         assert result_path.exists()
         stored_result = json.loads(result_path.read_text(encoding="utf-8"))
@@ -116,16 +128,14 @@ async def test_pipeline_integration_failure_propagation(
     """Test that agent exceptions are caught and correctly streamed as error events over SSE."""
     monkeypatch.setattr(settings, "temp_dir", str(temp_dir))
 
-    # Mock ResumeAnalystAgent to raise an exception
-    with patch("app.api.router.ResumeAnalystAgent.analyze") as mock_resume_analyze:
-        mock_resume_analyze.side_effect = Exception("LLM Agent analysis timeout")
+    with patch("app.graph.nodes.cv_structurer_node.CVStructurerAgent.structure_cv", new_callable=AsyncMock) as mock_cv_struct:
+        mock_cv_struct.side_effect = Exception("LLM Agent analysis timeout")
 
         fake_txt = io.BytesIO(b"Candidate Profile Info")
         jobs_payload = json.dumps([
             {"title": "Developer", "description": "FastAPI"}
         ])
 
-        # POST analyze
         response = await async_client.post(
             "/api/v1/analyze",
             files={"resume": ("resume.txt", fake_txt, "text/plain")},
@@ -133,7 +143,6 @@ async def test_pipeline_integration_failure_propagation(
         )
         session_id = response.json()["session_id"]
 
-        # Read SSE Stream expecting an error event
         error_event = None
         async with async_client.stream("GET", f"/api/v1/progress/{session_id}") as stream:
             assert stream.status_code == 200

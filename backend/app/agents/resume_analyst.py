@@ -19,7 +19,7 @@ class ResumeAnalystAgent(BaseAgent):
     The agent is stateless; each call to ``analyze`` is independent.
     """
 
-    system_prompt_file = "resume_analysis.txt"
+    system_prompt_file = "resume_analysis.md"
 
     async def analyze(self, resume_text: str) -> ResumeAnalysis:
         """Run resume analysis on the extracted plain text.

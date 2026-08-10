@@ -10,6 +10,7 @@ python-dotenv==1.0.1
 
 # LLM Abstraction
 litellm==1.57.4
+langgraph>=0.4.0
 
 # Document Parsing
 PyMuPDF==1.25.1

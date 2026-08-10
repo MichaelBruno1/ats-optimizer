@@ -19,7 +19,7 @@ class JobAnalystAgent(BaseAgent):
     The agent is stateless; each call to ``analyze`` is independent.
     """
 
-    system_prompt_file = "job_analysis.txt"
+    system_prompt_file = "job_analysis.md"
 
     async def analyze(self, job: JobInput, job_index: int) -> JobAnalysis:
         """Run job description analysis for a single vacancy.

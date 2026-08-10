@@ -13,17 +13,18 @@ graph TD
     end
 
     subgraph Backend [FastAPI Application]
-        Backend_Router[api/router.py] -->|4. Launch Task| Pipeline_Task[_run_pipeline]
+        Backend_Router[api/router.py] -->|4. Launch Task| Graph_Pipeline[graph/pipeline.py]
         Backend_Router -->|5. Stream Events| SSE_Client
         
-        Pipeline_Task -->|6. Parse Bytes| Doc_Parser[document_parser.py]
-        Pipeline_Task -->|7. Invoke| Resume_Analyst[ResumeAnalystAgent]
-        Pipeline_Task -->|8. Invoke| Job_Analyst[JobAnalystAgent]
-        Pipeline_Task -->|9. Invoke| Resume_Optimizer[ResumeOptimizerAgent]
-        Pipeline_Task -->|10. Render PDF| PDF_Gen[pdf_generator.py]
+        Graph_Pipeline -->|6. Execute Graph| Graph_Nodes[graph/nodes.py]
+        Graph_Nodes -->|7. Parse Bytes| Doc_Parser[document_parser.py]
+        Graph_Nodes -->|8. Invoke| Resume_Analyst[ResumeAnalystAgent]
+        Graph_Nodes -->|9. Invoke| Job_Analyst[JobAnalystAgent]
+        Graph_Nodes -->|10. Invoke| Resume_Optimizer[ResumeOptimizerAgent]
+        Graph_Nodes -->|11. Render PDF| PDF_Gen[pdf_generator.py]
         
-        PDF_Gen -->|11. Write HTML/CSS| WeasyPrint[WeasyPrint engine]
-        WeasyPrint -->|12. Write PDF| Temp_Store[temp_storage.py]
+        PDF_Gen -->|12. Write HTML/CSS| WeasyPrint[WeasyPrint engine]
+        WeasyPrint -->|13. Write PDF| Temp_Store[temp_storage.py]
     end
 
     subgraph LLM Gateway [LiteLLM Provider Manager]
@@ -31,10 +32,11 @@ graph TD
         LiteLLM -->|openai/gemini/ollama| External_API[LLM Gateway / Ollama Host]
     end
 
-    Temp_Store -->|13. Read FileResponse| Backend_Router
+    Temp_Store -->|14. Read FileResponse| Backend_Router
 ```
 
 ## 2. Key Architecture Points
-* **Asynchronous Execution Pattern**: The API router receives requests, immediately spins off a background task to process the pipeline, and returns a session token. The client then monitors the task state in real-time via Server-Sent Events (SSE).
+* **LangGraph Multi-Agent Orchestration**: The pipeline execution is orchestrated using a state graph (`app/graph`), enabling parallel agent execution (fan-out), explicit error routing via conditional edges, and reusable subgraphs.
+* **Asynchronous Execution Pattern**: The API router receives requests, immediately spins off a background task running `run_graph_pipeline`, and returns a session token. The client monitors state in real-time via Server-Sent Events (SSE).
 * **Temporary State Storage**: Optimizations are session-scoped and stored inside `/tmp/{session_id}`. No database is required, and data is kept ephemeral.
 * **LLM Abstraction Layer**: By using LiteLLM, the backend remains agnostic to the upstream provider, allowing developers to switch between OpenAI, Vertex AI, Gemini, or local gateways by simply altering environment variables.

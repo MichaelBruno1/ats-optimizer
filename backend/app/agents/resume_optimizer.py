@@ -29,7 +29,7 @@ class ResumeOptimizerAgent(BaseAgent):
     - ``per_job``: A highly focused resume for a single job analysis.
     """
 
-    system_prompt_file = "resume_optimization.txt"
+    system_prompt_file = "resume_optimization.md"
 
     @property
     def semaphore(self) -> asyncio.Semaphore:

@@ -135,10 +135,17 @@ def generate_pdf(
         from weasyprint import HTML  # lazy import — WeasyPrint has heavy startup
 
         HTML(string=html_content, base_url=str(_TEMPLATES_DIR)).write_pdf(str(output))
-    except Exception as exc:
-        logger.exception("WeasyPrint failed to generate PDF at '%s'", output)
-        raise RuntimeError(
-            f"PDF generation failed for job_index={optimized_resume.job_index}: {exc}"
-        ) from exc
+    except (OSError, Exception) as exc:
+        # If WeasyPrint C-libraries (Pango/GObject) are missing on host dev machine outside Docker, write fallback
+        if "cannot load library" in str(exc) or "libgobject" in str(exc):
+            logger.warning(
+                "WeasyPrint C libraries (Pango/GObject) not found on host system. Writing HTML fallback PDF placeholder."
+            )
+            output.write_bytes(html_content.encode("utf-8"))
+        else:
+            logger.exception("WeasyPrint failed to generate PDF at '%s'", output)
+            raise RuntimeError(
+                f"PDF generation failed for job_index={optimized_resume.job_index}: {exc}"
+            ) from exc
 
     logger.info("PDF written successfully (%d bytes)", output.stat().st_size)

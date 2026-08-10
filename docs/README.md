@@ -10,3 +10,4 @@ Welcome to the official documentation for the **ATS Optimizer** project. Below i
 6. [Arquitetura do Frontend SPA](frontend.md): Fluxo do wizard, tratamento de conexão EventSource e atualizações de progresso.
 7. [Verificação & Testes](testing.md): Cobertura automatizada do Pytest e execução de validações via Docker.
 8. [Débitos Técnicos](debitos_tecnicos.md): Levantamento completo de débitos técnicos classificados por severidade para correção futura.
+9. [Pipeline LangGraph](langgraph_pipeline.md): Orquestração do grafo de estados multiagente, nós, edges condicionais e subgrafos.
