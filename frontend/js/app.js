@@ -240,7 +240,7 @@ async function handleAnalyze() {
       // Connect SSE progress stream with dynamic timeout
       const timeoutLimit = (state.config && typeof state.config.llm_timeout === 'number')
         ? state.config.llm_timeout
-        : 120;
+        : 300;
 
       startProgress(
         state.sessionId,

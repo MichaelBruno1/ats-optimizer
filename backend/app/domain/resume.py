@@ -49,3 +49,9 @@ class StructuredResume(BaseModel):
     total_years_experience: Optional[int] = None
     formatting_issues: list[str] = Field(default_factory=list)
     raw_text: str = ""
+
+
+# Aliases for cross-module compatibility
+ContactInfo = CandidateContact
+ExperienceEntry = ExperienceItem
+EducationEntry = EducationItem

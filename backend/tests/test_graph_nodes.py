@@ -4,10 +4,11 @@ import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
-from app.api.schemas import JobInput
+from app.api.schemas import ExperienceExample, JobInput
 from app.domain.job import SeniorityLevel, StructuredJob
 from app.domain.resume import StructuredResume
 from app.graph.nodes.cv_structurer_node import cv_structurer_node
+from app.graph.nodes.experience_coach_node import experience_coach_node
 from app.graph.nodes.finalize_node import finalize_node
 from app.graph.nodes.job_analyzer_node import job_analyzer_node
 from app.graph.nodes.optimizer_node import optimizer_node
@@ -29,7 +30,8 @@ async def test_cv_structurer_node_success(sample_resume_analysis):
         professional_summary="Experienced Python Developer.",
     )
 
-    with patch("app.graph.nodes.cv_structurer_node.CVStructurerAgent") as MockAgent:
+    with patch("app.graph.nodes.cv_structurer_node.ResumeCacheService.get", return_value=None), \
+         patch("app.graph.nodes.cv_structurer_node.CVStructurerAgent") as MockAgent:
         mock_instance = MagicMock()
         mock_instance.structure_cv = AsyncMock(return_value=mock_structured)
         MockAgent.return_value = mock_instance
@@ -39,6 +41,23 @@ async def test_cv_structurer_node_success(sample_resume_analysis):
         assert "structured_resume" in result
         assert result["structured_resume"].candidate_name == "Michael Bruno"
         assert queue.qsize() == 2
+
+
+@pytest.mark.asyncio
+async def test_cv_structurer_node_cache_hit(sample_resume_analysis):
+    queue = asyncio.Queue()
+    state: GraphState = {
+        "resume_text": "Cached candidate resume.",
+        "queue": queue,
+    }
+
+    mock_structured = StructuredResume(candidate_name="Cached Candidate")
+
+    with patch("app.graph.nodes.cv_structurer_node.ResumeCacheService.get", return_value=(mock_structured, sample_resume_analysis)):
+        result = await cv_structurer_node(state)
+
+        assert result["structured_resume"].candidate_name == "Cached Candidate"
+        assert queue.qsize() == 1
 
 
 @pytest.mark.asyncio
@@ -68,6 +87,35 @@ async def test_job_analyzer_node_success(sample_job_analysis):
         assert "structured_jobs" in result
         assert len(result["structured_jobs"]) == 1
         assert result["structured_jobs"][0].title == "Senior Dev"
+
+
+@pytest.mark.asyncio
+async def test_experience_coach_node_success():
+    queue = asyncio.Queue()
+    mock_structured_resume = StructuredResume(candidate_name="Dev")
+    mock_structured_job = StructuredJob(job_index=0, title="Dev")
+
+    state: GraphState = {
+        "structured_resume": mock_structured_resume,
+        "structured_jobs": [mock_structured_job],
+        "queue": queue,
+    }
+
+    mock_example = ExperienceExample(
+        company="TechCorp",
+        role="Dev",
+        original_description="Code APIs",
+        suggested_description="Designed scalable APIs with FastAPI",
+    )
+
+    with patch("app.graph.nodes.experience_coach_node.ExperienceCoachAgent") as MockAgent:
+        MockAgent.return_value.generate_suggestions = AsyncMock(return_value=[mock_example])
+
+        result = await experience_coach_node(state)
+
+        assert "experience_examples" in result
+        assert len(result["experience_examples"]) == 1
+        assert result["experience_examples"][0]["company"] == "TechCorp"
 
 
 @pytest.mark.asyncio

@@ -2,7 +2,7 @@
  * results.js — Results rendering for Step 5
  *
  * Renders the ATS score, resume analysis, job accordion,
- * and download section from the API response.
+ * experience coach recommendations, and on-demand PDF downloads.
  */
 
 import api from './api.js';
@@ -186,7 +186,7 @@ export function renderJobAnalyses(jobAnalyses) {
   });
 
   // Init Materialize collapsible
-  const instances = M.Collapsible.init(accordion, {
+  M.Collapsible.init(accordion, {
     accordion: true,
     onOpenStart(el) {
       const header = el.querySelector('.collapsible-header');
@@ -233,8 +233,100 @@ function compatBadgeClass(score) {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Downloads                                                           */
+/*  Experience Coach Examples (Educational section)                   */
 /* ------------------------------------------------------------------ */
+
+/**
+ * Render educational before/after experience descriptions.
+ * @param {Array} examples - experience_examples array from API
+ */
+export function renderExperienceExamples(examples) {
+  const container = document.getElementById('experience-coach-container');
+  if (!container) return;
+
+  container.innerHTML = '';
+
+  if (!examples || examples.length === 0) {
+    container.innerHTML = '<p style="color:var(--pastel-text-light);font-size:0.9rem">Nenhum exemplo disponível no momento.</p>';
+    return;
+  }
+
+  examples.forEach((item, index) => {
+    const card = document.createElement('div');
+    card.className = 'coach-card card';
+
+    const bulletListHtml = item.suggested_bullet_points && item.suggested_bullet_points.length
+      ? `<div class="coach-bullets">
+           <p class="coach-subtitle"><span class="material-icons">format_list_bulleted</span> Sugestões de Realizações no Formato XYZ:</p>
+           <ul>
+             ${item.suggested_bullet_points.map(b => `<li>${escapeHtml(b)}</li>`).join('')}
+           </ul>
+         </div>`
+      : '';
+
+    card.innerHTML = `
+      <div class="coach-card-header">
+        <span class="material-icons coach-icon">psychology</span>
+        <div>
+          <h4 class="coach-role">${escapeHtml(item.role || 'Função Profissional')}</h4>
+          ${item.company ? `<span class="coach-company">${escapeHtml(item.company)}</span>` : ''}
+        </div>
+      </div>
+
+      <div class="coach-comparison">
+        <div class="coach-box coach-box-before">
+          <div class="coach-box-title">
+            <span class="material-icons">history</span> Como você descreveu:
+          </div>
+          <p class="coach-box-text">${escapeHtml(item.original_description || 'Descrição padrão')}</p>
+        </div>
+
+        <div class="coach-box coach-box-after">
+          <div class="coach-box-title">
+            <span class="material-icons">auto_awesome</span> Como descrever com alto impacto:
+          </div>
+          <p class="coach-box-text">${escapeHtml(item.suggested_description || '')}</p>
+          ${bulletListHtml}
+        </div>
+      </div>
+
+      ${item.reasoning ? `
+        <div class="coach-reasoning">
+          <span class="material-icons">tips_and_updates</span>
+          <p><strong>Por que funciona:</strong> ${escapeHtml(item.reasoning)}</p>
+        </div>
+      ` : ''}
+    `;
+
+    container.appendChild(card);
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/*  Downloads (On-Demand PDF Generation)                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Handle on-demand PDF generation and download trigger.
+ */
+async function handlePdfDownload(btn, sessionId, jobIndex) {
+  const originalHtml = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="material-icons left" style="animation: spin 1s infinite linear">sync</span> Gerando PDF...';
+
+  try {
+    // 1. Call on-demand generation endpoint
+    await api.generatePdf(sessionId, jobIndex);
+    // 2. Open download URL
+    window.open(api.getDownloadUrl(sessionId, jobIndex), '_blank');
+  } catch (err) {
+    console.error('Failed to generate PDF:', err);
+    M.toast({ html: `Erro ao gerar PDF: ${err.message || 'Tente novamente.'}`, classes: 'red' });
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = originalHtml;
+  }
+}
 
 /**
  * Render download buttons/cards.
@@ -257,27 +349,29 @@ export function renderDownloads(optimizations, outputMode, sessionId, jobs = [])
   if (outputMode === 'single') {
     const opt = optimizations[0];
     const estimatedScore = opt.estimated_score_after ?? null;
+    const jobIndex = opt.job_index ?? 0;
 
     const div = document.createElement('div');
     div.className = 'download-single card';
     div.innerHTML = `
       <span class="material-icons download-single-icon">picture_as_pdf</span>
-      <h3 class="download-single-title">Currículo Otimizado</h3>
+      <h3 class="download-single-title">Currículo Otimizado para ATS</h3>
       ${estimatedScore !== null
-        ? `<p class="download-single-sub">Score ATS estimado após otimização: <strong>${Math.round(estimatedScore)}%</strong></p>`
+        ? `<p class="download-single-sub">Score ATS calculado: <strong>${Math.round(estimatedScore)}%</strong></p>`
         : '<p class="download-single-sub">Seu currículo foi otimizado para todas as vagas</p>'}
-      ${opt.changes_summary
-        ? `<p style="font-size:0.82rem;color:var(--pastel-text-light);margin-bottom:20px;max-width:480px;margin-inline:auto">${escapeHtml(opt.changes_summary)}</p>`
+      ${opt.changes_summary && opt.changes_summary.length
+        ? `<p style="font-size:0.82rem;color:var(--pastel-text-light);margin-bottom:20px;max-width:480px;margin-inline:auto">${escapeHtml(opt.changes_summary.join(' • '))}</p>`
         : ''}
       <button class="btn btn-primary waves-effect waves-light" id="btn-download-single">
         <span class="material-icons left">download</span>
-        Baixar Currículo Otimizado
+        Gerar e Baixar PDF Otimizado
       </button>
     `;
     container.appendChild(div);
 
-    div.querySelector('#btn-download-single').addEventListener('click', () => {
-      window.open(api.getDownloadUrl(sessionId, opt.job_index ?? 0), '_blank');
+    const downloadBtn = div.querySelector('#btn-download-single');
+    downloadBtn.addEventListener('click', () => {
+      handlePdfDownload(downloadBtn, sessionId, jobIndex);
     });
 
   } else {
@@ -300,11 +394,11 @@ export function renderDownloads(optimizations, outputMode, sessionId, jobs = [])
         ${estimated !== null
           ? `<div class="estimated-score">
                <span class="material-icons">trending_up</span>
-               ${Math.round(estimated)}% estimado
+               ${Math.round(estimated)}% score ATS
              </div>`
           : ''}
         <button class="btn btn-primary waves-effect waves-light btn-dl-job" style="font-size:0.8rem;height:38px;line-height:38px;padding:0 18px" data-job-index="${jobIndex}">
-          <span class="material-icons left" style="font-size:16px">download</span>Baixar
+          <span class="material-icons left" style="font-size:16px">download</span>Baixar PDF
         </button>
       `;
       grid.appendChild(card);
@@ -312,11 +406,10 @@ export function renderDownloads(optimizations, outputMode, sessionId, jobs = [])
 
     container.appendChild(grid);
 
-    // Attach download events
     grid.querySelectorAll('.btn-dl-job').forEach((btn) => {
       btn.addEventListener('click', () => {
         const jobIndex = Number(btn.dataset.jobIndex);
-        window.open(api.getDownloadUrl(sessionId, jobIndex), '_blank');
+        handlePdfDownload(btn, sessionId, jobIndex);
       });
     });
   }
@@ -333,7 +426,13 @@ export function renderDownloads(optimizations, outputMode, sessionId, jobs = [])
  * @param {Array}  jobs       - original jobs submitted
  */
 export function renderResults(data, outputMode, jobs = []) {
-  const { resume_analysis = {}, job_analyses = [], optimizations = [], session_id } = data;
+  const {
+    resume_analysis = {},
+    job_analyses = [],
+    optimizations = [],
+    experience_examples = [],
+    session_id,
+  } = data;
 
   // 1. Score circle
   const atsScore = resume_analysis.ats_readability_score ?? 0;
@@ -345,7 +444,10 @@ export function renderResults(data, outputMode, jobs = []) {
   // 3. Job accordion
   renderJobAnalyses(job_analyses);
 
-  // 4. Downloads
+  // 4. Educational Experience Coach suggestions
+  renderExperienceExamples(experience_examples);
+
+  // 5. Downloads (On-demand PDF)
   renderDownloads(optimizations, outputMode, session_id, jobs);
 }
 

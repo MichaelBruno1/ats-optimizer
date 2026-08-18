@@ -1,19 +1,12 @@
 """API Router for ATS Optimizer.
 
-Implements all five endpoints:
+Implements endpoints:
 - POST   /api/v1/analyze          — Upload resume + jobs, run full pipeline
-- GET    /api/v1/download/{id}/{i} — Download generated PDF
+- POST   /api/v1/generate-pdf/{id}/{i} — Generate PDF on-demand
+- GET    /api/v1/download/{id}/{i} — Download generated PDF (generates on-demand if needed)
 - GET    /api/v1/progress/{id}    — Server-Sent Events for progress
 - GET    /api/v1/health           — Health check
 - GET    /api/v1/config           — App configuration metadata
-
-Architecture (SSE + async):
-  POST /analyze creates a session, registers an asyncio Queue, launches
-  the processing pipeline as a background asyncio task, and returns the
-  session_id immediately so the frontend can open the SSE channel.
-  The pipeline task publishes progress events to the Queue.
-  GET /progress/{session_id} streams those events as SSE until it receives
-  the terminal 'complete' or 'error' event.
 """
 
 import asyncio
@@ -25,9 +18,9 @@ from typing import AsyncGenerator
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 
-from app.api.schemas import JobInput
-from app.graph.pipeline import run_graph_pipeline
+from app.api.schemas import JobInput, OptimizedResume, ResumeAnalysis
 from app.config import settings
+from app.graph.pipeline import run_graph_pipeline
 from app.services.document_parser import (
     DocumentParseError,
     FileTooLargeError,
@@ -49,21 +42,71 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# Re-import SSE helpers needed by the progress endpoint
 _DONE_SENTINEL = "__DONE__"
 
 
 def _sse_event(event: str, data: dict) -> str:
-    """Format a single Server-Sent Event string.
-
-    Args:
-        event: The SSE event type name.
-        data: The event payload dict (will be JSON-serialised).
-
-    Returns:
-        Properly formatted SSE string with event name and data fields.
-    """
+    """Format a single Server-Sent Event string."""
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+
+def _ensure_pdf_generated(session_id: str, job_index: int) -> Path:
+    """Check if PDF exists; if not, generate it on-demand from saved session artifacts."""
+    if not session_exists(session_id):
+        raise HTTPException(
+            status_code=404,
+            detail=f"Sessão '{session_id}' não encontrada ou expirada.",
+        )
+
+    pdf_path = get_pdf_path(session_id, job_index)
+    if pdf_path.exists():
+        return pdf_path
+
+    session_dir = get_session_dir(session_id)
+    optimized_path = session_dir / "optimized_resumes.json"
+    result_path = session_dir / "result.json"
+
+    if not optimized_path.exists() or not result_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=f"Dados da sessão '{session_id}' incompletos ou expirados.",
+        )
+
+    try:
+        opt_list_raw = json.loads(optimized_path.read_text(encoding="utf-8"))
+        result_raw = json.loads(result_path.read_text(encoding="utf-8"))
+
+        resume_analysis = None
+        if "resume_analysis" in result_raw and result_raw["resume_analysis"]:
+            resume_analysis = ResumeAnalysis.model_validate(result_raw["resume_analysis"])
+
+        # Find matching optimized resume
+        selected_opt_raw = None
+        for item in opt_list_raw:
+            if item.get("job_index") == job_index or (item.get("job_index") is None and job_index == 0):
+                selected_opt_raw = item
+                break
+        if not selected_opt_raw and opt_list_raw:
+            selected_opt_raw = opt_list_raw[0]
+
+        if not selected_opt_raw:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Currículo otimizado para o índice {job_index} não encontrado.",
+            )
+
+        optimized_resume = OptimizedResume.model_validate(selected_opt_raw)
+        generate_pdf(optimized_resume, pdf_path, resume_analysis=resume_analysis)
+        return pdf_path
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Failed to generate PDF on demand for session %s, job %d", session_id, job_index)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Falha na geração sob demanda do PDF: {exc}",
+        ) from exc
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -91,14 +134,12 @@ async def analyze(
     ),
 ) -> dict:
     """Accept a resume upload + job list, start the pipeline, return session_id."""
-    # ── Validate output_mode ──────────────────────────────────────────────────
     if output_mode not in ("single", "per_job"):
         raise HTTPException(
             status_code=422,
             detail="output_mode must be 'single' or 'per_job'.",
         )
 
-    # ── Parse jobs JSON ───────────────────────────────────────────────────────
     try:
         raw_jobs = json.loads(jobs)
         if not isinstance(raw_jobs, list) or not raw_jobs:
@@ -115,7 +156,6 @@ async def analyze(
 
     try:
         resume_text = await extract_text_from_upload(resume)
-        # Safety truncation to prevent local LLM context window overflows
         MAX_RESUME_CHARS = 12000
         if len(resume_text) > MAX_RESUME_CHARS:
             logger.warning(
@@ -134,7 +174,6 @@ async def analyze(
     except DocumentParseError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-    # ── Create session & register SSE queue ──────────────────────────────────
     session_id = create_session()
     queue = register_queue(session_id)
 
@@ -146,7 +185,6 @@ async def analyze(
         len(resume_text),
     )
 
-    # ── Launch background pipeline ────────────────────────────────────────────
     asyncio.create_task(
         run_graph_pipeline(
             session_id=session_id,
@@ -158,7 +196,6 @@ async def analyze(
         name=f"pipeline-{session_id}",
     )
 
-    # Return immediately with the session_id so the frontend can open SSE
     return {"session_id": session_id, "message": "Processing started. Connect to the SSE endpoint for progress."}
 
 
@@ -168,14 +205,13 @@ async def analyze(
     description=(
         "Opens an SSE stream for the given session. Events are emitted as the "
         "pipeline progresses through resume analysis, job analysis, optimization, "
-        "and PDF generation. The stream closes after a 'complete' or 'error' event."
+        "and finalization. The stream closes after a 'complete' or 'error' event."
     ),
 )
 async def progress(session_id: str) -> StreamingResponse:
     """SSE endpoint that streams pipeline progress events for a session."""
     queue = get_queue(session_id)
     if queue is None:
-        # Session may have already completed — try to return the stored result
         result_path = get_session_dir(session_id) / "result.json"
         if result_path.exists():
             result_data = json.loads(result_path.read_text(encoding="utf-8"))
@@ -206,7 +242,6 @@ async def progress(session_id: str) -> StreamingResponse:
         )
 
     async def _event_generator() -> AsyncGenerator[str, None]:
-        """Consume the session queue and yield SSE-formatted strings."""
         try:
             while True:
                 item = await asyncio.wait_for(queue.get(), timeout=settings.llm_timeout)
@@ -218,13 +253,12 @@ async def progress(session_id: str) -> StreamingResponse:
                 event_name, event_data = item
                 yield _sse_event(event_name, event_data)
 
-                # Stop streaming after terminal events
                 if event_name in ("complete", "error"):
                     deregister_queue(session_id)
                     break
 
         except asyncio.TimeoutError:
-            yield _sse_event("error", {"message": "Processing timed out after 120 seconds."})
+            yield _sse_event("error", {"message": f"Processing timed out after {int(settings.llm_timeout)} seconds."})
             deregister_queue(session_id)
 
     return StreamingResponse(
@@ -238,28 +272,28 @@ async def progress(session_id: str) -> StreamingResponse:
     )
 
 
+@router.post(
+    "/generate-pdf/{session_id}/{job_index}",
+    summary="Generate PDF resume on-demand",
+    description="Renders the optimized resume PDF when requested by the user.",
+)
+async def generate_pdf_endpoint(session_id: str, job_index: int) -> dict:
+    """Generate the PDF on-demand for a given session and job index."""
+    _ensure_pdf_generated(session_id, job_index)
+    return {
+        "status": "ready",
+        "download_url": f"/api/v1/download/{session_id}/{job_index}",
+    }
+
+
 @router.get(
     "/download/{session_id}/{job_index}",
     summary="Download the optimized PDF resume",
-    description="Returns the generated PDF file for the given session and job index.",
+    description="Returns the generated PDF file for the given session and job index (generating on demand if needed).",
 )
 async def download(session_id: str, job_index: int) -> FileResponse:
     """Serve the generated PDF file as a downloadable attachment."""
-    if not session_exists(session_id):
-        raise HTTPException(
-            status_code=404,
-            detail=f"Session '{session_id}' not found or has expired.",
-        )
-
-    pdf_path = get_pdf_path(session_id, job_index)
-    if not pdf_path.exists():
-        raise HTTPException(
-            status_code=404,
-            detail=(
-                f"PDF for job_index={job_index} not found in session '{session_id}'. "
-                "The file may still be generating or the index may be invalid."
-            ),
-        )
+    pdf_path = _ensure_pdf_generated(session_id, job_index)
 
     filename = f"optimized_resume_{job_index}.pdf"
     return FileResponse(

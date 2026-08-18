@@ -19,13 +19,14 @@ class Settings(BaseSettings):
     llm_api_base: str = Field(default="", alias="LLM_API_BASE")
     llm_temperature: float = Field(default=0.3, alias="LLM_TEMPERATURE")
     llm_max_tokens: int = Field(default=32768, alias="LLM_MAX_TOKENS")
-    llm_timeout: float = Field(default=120.0, alias="LLM_TIMEOUT")
+    llm_timeout: float = Field(default=300.0, alias="LLM_TIMEOUT")
 
     # ── App ───────────────────────────────────────────────────────────────────
     max_file_size_mb: int = Field(default=5, alias="MAX_FILE_SIZE_MB")
     max_jobs: int = Field(default=3, alias="MAX_JOBS")
     temp_dir: str = Field(default="/tmp/ats_optimizer", alias="TEMP_DIR")
     temp_cleanup_minutes: int = Field(default=30, alias="TEMP_CLEANUP_MINUTES")
+    cache_ttl_hours: int = Field(default=24, alias="CACHE_TTL_HOURS")
     cors_origins: str = Field(
         default="http://localhost:8000", alias="CORS_ORIGINS"
     )

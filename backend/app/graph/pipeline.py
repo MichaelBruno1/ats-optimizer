@@ -2,11 +2,11 @@
 
 Topology:
   START ─┬─→ cv_structurer ──┐
-         └─→ job_analyzer  ──┴─→ matcher ──→ strengths_gaps ──→ planner ──→ optimizer ──→ validator
-                                                                               ▲             │
-                                                                               └─ (reoptimize)
-                                                                                             ▼ (pass or max_iter)
-                                                                                        generate_pdfs ──→ finalize ──→ END
+         └─→ job_analyzer  ──┴─→ matcher ──→ strengths_gaps ──→ experience_coach ──→ planner ──→ optimizer ──→ validator
+                                                                                                    ▲             │
+                                                                                                    └─ (reoptimize)
+                                                                                                                  ▼ (stop criteria)
+                                                                                                               finalize ──→ END
 """
 
 import asyncio
@@ -16,11 +16,11 @@ from typing import Any, Dict
 from langgraph.graph import StateGraph, START, END
 
 from app.graph.nodes.cv_structurer_node import cv_structurer_node
+from app.graph.nodes.experience_coach_node import experience_coach_node
 from app.graph.nodes.finalize_node import finalize_node
 from app.graph.nodes.job_analyzer_node import job_analyzer_node
 from app.graph.nodes.matcher_node import matcher_node
 from app.graph.nodes.optimizer_node import optimizer_node
-from app.graph.nodes.pdf_node import generate_pdfs_node
 from app.graph.nodes.planner_node import planner_node
 from app.graph.nodes.strengths_gaps_node import strengths_gaps_node
 from app.graph.nodes.validator_node import validator_node
@@ -53,16 +53,14 @@ def build_job_analysis_subgraph() -> StateGraph:
 def build_optimization_subgraph() -> StateGraph:
     graph = StateGraph(GraphState)
     graph.add_node("optimizer", optimizer_node)
-    graph.add_node("generate_pdfs", generate_pdfs_node)
     graph.add_node("finalize", finalize_node)
 
     graph.add_edge(START, "optimizer")
     graph.add_conditional_edges(
         "optimizer",
         should_generate,
-        {"generate_pdfs": "generate_pdfs", "end": END},
+        {"finalize": "finalize", "end": END},
     )
-    graph.add_edge("generate_pdfs", "finalize")
     graph.add_edge("finalize", END)
     return graph
 
@@ -83,10 +81,10 @@ def build_optimization_graph() -> StateGraph:
     graph.add_node("job_analyzer", job_analyzer_node)
     graph.add_node("matcher", matcher_node)
     graph.add_node("strengths_gaps", strengths_gaps_node)
+    graph.add_node("experience_coach", experience_coach_node)
     graph.add_node("planner", planner_node)
     graph.add_node("optimizer", optimizer_node)
     graph.add_node("validator", validator_node)
-    graph.add_node("generate_pdfs", generate_pdfs_node)
     graph.add_node("finalize", finalize_node)
 
     # ── Parallel Fan-out: START → cv_structurer & job_analyzer ──
@@ -97,9 +95,10 @@ def build_optimization_graph() -> StateGraph:
     graph.add_edge("cv_structurer", "matcher")
     graph.add_edge("job_analyzer", "matcher")
 
-    # ── Linear flow: matcher → strengths_gaps → planner → optimizer → validator ──
+    # ── Linear flow: matcher → strengths_gaps → experience_coach → planner → optimizer → validator ──
     graph.add_edge("matcher", "strengths_gaps")
-    graph.add_edge("strengths_gaps", "planner")
+    graph.add_edge("strengths_gaps", "experience_coach")
+    graph.add_edge("experience_coach", "planner")
     graph.add_edge("planner", "optimizer")
     graph.add_edge("optimizer", "validator")
 
@@ -109,13 +108,12 @@ def build_optimization_graph() -> StateGraph:
         should_reoptimize,
         {
             "optimize": "optimizer",
-            "generate_pdfs": "generate_pdfs",
+            "finalize": "finalize",
             "end": END,
         },
     )
 
-    # ── Linear completion: generate_pdfs → finalize → END ──
-    graph.add_edge("generate_pdfs", "finalize")
+    # ── Completion: finalize → END ──
     graph.add_edge("finalize", END)
 
     return graph
@@ -142,6 +140,7 @@ async def run_graph_pipeline(
             "output_mode": output_mode,
             "queue": queue,
             "optimization_iteration": 0,
+            "score_history": [],
             "approved": False,
         }
 

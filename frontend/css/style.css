@@ -1324,3 +1324,170 @@ body {
   margin-bottom: 10px;
   opacity: 0.4;
 }
+
+/* ---- 23. EXPERIENCE COACH SECTION -------------------------- */
+.experience-coach-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.coach-card {
+  background: var(--pastel-card);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--pastel-border);
+  box-shadow: var(--shadow-sm);
+  padding: 20px 24px;
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+
+.coach-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.coach-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--pastel-border);
+}
+
+.coach-icon {
+  font-size: 28px !important;
+  color: var(--pastel-primary);
+  background: rgba(124,156,191,0.12);
+  padding: 8px;
+  border-radius: var(--radius-sm);
+}
+
+.coach-role {
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--pastel-text);
+  margin: 0;
+}
+
+.coach-company {
+  font-size: 0.85rem;
+  color: var(--pastel-text-light);
+  font-weight: 500;
+}
+
+.coach-comparison {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 768px) {
+  .coach-comparison {
+    grid-template-columns: 1fr;
+  }
+}
+
+.coach-box {
+  padding: 14px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.coach-box-before {
+  background: rgba(224, 224, 224, 0.3);
+  border-left: 3px solid #9E9E9E;
+}
+
+.coach-box-after {
+  background: rgba(181, 216, 176, 0.18);
+  border-left: 3px solid var(--pastel-success);
+}
+
+.coach-box-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--pastel-text);
+}
+
+.coach-box-title .material-icons {
+  font-size: 16px !important;
+}
+
+.coach-box-text {
+  color: var(--pastel-text);
+  margin: 0 0 8px 0;
+}
+
+.coach-bullets {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(61, 122, 54, 0.2);
+}
+
+.coach-subtitle {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #2e6027;
+  margin: 0 0 6px 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.coach-subtitle .material-icons {
+  font-size: 14px !important;
+}
+
+.coach-bullets ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.coach-bullets li {
+  font-size: 0.84rem;
+  color: var(--pastel-text);
+  margin-bottom: 4px;
+}
+
+.coach-reasoning {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: rgba(247, 217, 196, 0.25);
+  border: 1px solid rgba(230, 160, 120, 0.3);
+  font-size: 0.84rem;
+  color: #7D4F38;
+}
+
+.coach-reasoning .material-icons {
+  font-size: 20px !important;
+  color: #D9822B;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.coach-reasoning p {
+  margin: 0;
+  line-height: 1.4;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.rotating {
+  animation: spin 1s infinite linear;
+}

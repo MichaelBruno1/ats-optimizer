@@ -34,6 +34,7 @@ async def test_full_graph_success(
         "queue": queue,
         "optimization_iteration": 0,
         "approved": False,
+        "score_history": [],
     }
 
     mock_structured_resume = StructuredResume(
@@ -52,8 +53,7 @@ async def test_full_graph_success(
     with patch("app.graph.nodes.cv_structurer_node.CVStructurerAgent") as MockCVStructurer, \
          patch("app.graph.nodes.job_analyzer_node.JobAnalystAgent") as MockJobAnalyst, \
          patch("app.graph.nodes.optimizer_node.ResumeOptimizerAgent") as MockOptimizer, \
-         patch("app.graph.nodes.validator_node.ATSValidatorAgent") as MockValidator, \
-         patch("app.graph.nodes.pdf_node.generate_pdf") as mock_generate_pdf:
+         patch("app.graph.nodes.validator_node.ATSValidatorAgent") as MockValidator:
 
         MockCVStructurer.return_value.structure_cv = AsyncMock(return_value=mock_structured_resume)
         MockJobAnalyst.return_value.analyze = AsyncMock(return_value=(mock_structured_job, sample_job_analysis))
@@ -73,8 +73,8 @@ async def test_full_graph_success(
         assert final_state["structured_resume"] == mock_structured_resume
         assert len(final_state["structured_jobs"]) == 1
         assert len(final_state["optimized_resumes"]) == 1
-        assert final_state["pdf_generated"] is True
-        mock_generate_pdf.assert_called_once()
+        assert "optimization_results" in final_state
+        assert len(final_state["optimization_results"]) == 1
 
 
 @pytest.mark.asyncio
@@ -107,8 +107,7 @@ async def test_run_graph_pipeline_publishes_done(
     with patch("app.graph.nodes.cv_structurer_node.CVStructurerAgent") as MockCVStructurer, \
          patch("app.graph.nodes.job_analyzer_node.JobAnalystAgent") as MockJobAnalyst, \
          patch("app.graph.nodes.optimizer_node.ResumeOptimizerAgent") as MockOptimizer, \
-         patch("app.graph.nodes.validator_node.ATSValidatorAgent") as MockValidator, \
-         patch("app.graph.nodes.pdf_node.generate_pdf"):
+         patch("app.graph.nodes.validator_node.ATSValidatorAgent") as MockValidator:
 
         MockCVStructurer.return_value.structure_cv = AsyncMock(return_value=mock_structured_resume)
         MockJobAnalyst.return_value.analyze = AsyncMock(return_value=(mock_structured_job, sample_job_analysis))

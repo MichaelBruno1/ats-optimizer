@@ -1,7 +1,7 @@
 """Unit and integration tests for independent subgraphs."""
 
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 import pytest
 
 from app.api.schemas import JobInput
@@ -85,13 +85,11 @@ async def test_optimization_subgraph_success(
         "queue": queue,
     }
 
-    with patch("app.graph.nodes.optimizer_node.ResumeOptimizerAgent") as MockOptimizer, \
-         patch("app.graph.nodes.pdf_node.generate_pdf") as mock_generate_pdf:
-
+    with patch("app.graph.nodes.optimizer_node.ResumeOptimizerAgent") as MockOptimizer:
         MockOptimizer.return_value.optimize_single = AsyncMock(return_value=sample_optimized_resume)
 
         result = await optimization_subgraph.ainvoke(state)
 
         assert len(result["optimized_resumes"]) == 1
-        assert result["pdf_generated"] is True
-        mock_generate_pdf.assert_called_once()
+        assert "optimization_results" in result
+        assert len(result["optimization_results"]) == 1

@@ -56,7 +56,11 @@ class GraphState(TypedDict, total=False):
     validation_results: Optional[list[ValidationResult]]
 
     optimization_iteration: int
+    score_history: list[int]
     approved: bool
+
+    # ── Educational Experience Coach Examples ─────────────────────────────
+    experience_examples: Optional[list[dict]]
 
     # ── Output ────────────────────────────────────────────────────────────
     optimization_results: Optional[list[OptimizationResult]]

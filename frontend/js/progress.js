@@ -15,17 +15,32 @@ const STEP_ORDER = [
   'extract',
   'resume_analysis',
   'job_analysis',
+  'matching_coach_planning',
   'optimization',
-  'pdf_generation',
+  'validation',
 ];
 
-/** Map backend step identifiers to checklist element IDs */
+/** Map backend step identifiers to the canonical checklist step */
+const BACKEND_TO_CANONICAL_STEP = {
+  extract:                 'extract',
+  resume_analysis:         'resume_analysis',
+  job_analysis:            'job_analysis',
+  matching:                'matching_coach_planning',
+  planning:                'matching_coach_planning',
+  coach:                   'matching_coach_planning',
+  matching_coach_planning: 'matching_coach_planning',
+  optimization:            'optimization',
+  validation:              'validation',
+};
+
+/** Map canonical checklist step to HTML element ID */
 const STEP_ID_MAP = {
-  extract:         'check-extract',
-  resume_analysis: 'check-analyze-resume',
-  job_analysis:    'check-analyze-jobs',
-  optimization:    'check-optimize',
-  pdf_generation:  'check-generate-pdf',
+  extract:                 'check-extract',
+  resume_analysis:         'check-analyze-resume',
+  job_analysis:            'check-analyze-jobs',
+  matching_coach_planning: 'check-matching-coach',
+  optimization:            'check-optimize',
+  validation:              'check-validation',
 };
 
 /* ------------------------------------------------------------------ */
@@ -74,12 +89,12 @@ export function updateStatusMessage(msg) {
 
 /**
  * Mark a checklist step as done, and advance the active indicator.
- * @param {string} step - one of STEP_ORDER values
+ * @param {string} backendStep - identifier sent by the backend node
  */
-export function updateStepChecklist(step) {
-  if (!STEP_ID_MAP[step]) return;
-
-  const currentIdx = STEP_ORDER.indexOf(step);
+export function updateStepChecklist(backendStep) {
+  const canonicalStep = BACKEND_TO_CANONICAL_STEP[backendStep] || backendStep;
+  const currentIdx = STEP_ORDER.indexOf(canonicalStep);
+  if (currentIdx === -1) return;
 
   STEP_ORDER.forEach((s, idx) => {
     const el = document.getElementById(STEP_ID_MAP[s]);
@@ -95,7 +110,7 @@ export function updateStepChecklist(step) {
       completedSteps.add(s);
     } else if (idx === currentIdx) {
       // Currently active step
-      el.classList.remove('done', 'active-step');
+      el.classList.remove('done');
       el.classList.add('active-step');
       if (icon) icon.textContent = 'radio_button_unchecked';
       completedSteps.delete(s);
@@ -164,9 +179,10 @@ export function showProcessingError(msg) {
  * @param {string}   sessionId
  * @param {Function} onComplete - called with final result data
  * @param {Function} onError    - called with error message string
+ * @param {number}   timeoutSeconds - Max seconds of inactivity before timing out (default 300)
  * @returns {void}
  */
-export function startProgress(sessionId, onComplete, onError, timeoutSeconds = 120) {
+export function startProgress(sessionId, onComplete, onError, timeoutSeconds = 300) {
   // Close any previous connection
   stopProgress();
   resetProgressUI();

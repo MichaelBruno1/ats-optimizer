@@ -173,6 +173,18 @@ class OptimizationResult(SafeBaseModel):
     estimated_score_after: int = 0
 
 
+class ExperienceExample(SafeBaseModel):
+    """Educational recommendation for candidate experience descriptions."""
+
+    company: str = ""
+    role: str = ""
+    original_description: str = ""
+    suggested_description: str = ""
+    suggested_bullet_points: list[str] = []
+    reasoning: str = ""
+    key_keywords_highlighted: list[str] = []
+
+
 class AnalyzeResponse(SafeBaseModel):
     """Top-level response for POST /api/v1/analyze."""
 
@@ -180,6 +192,7 @@ class AnalyzeResponse(SafeBaseModel):
     resume_analysis: ResumeAnalysis
     job_analyses: list[JobAnalysis] = []
     optimizations: list[OptimizationResult] = []
+    experience_examples: list[ExperienceExample] = []
 
 
 # ─────────────────────────────────────────────────────────────────────────────

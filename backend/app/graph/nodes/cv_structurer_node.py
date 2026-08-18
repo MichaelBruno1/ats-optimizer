@@ -1,4 +1,4 @@
-"""CV Structurer Node."""
+"""CV Structurer Node with Caching."""
 
 import asyncio
 import logging
@@ -7,6 +7,7 @@ from app.agents.cv_agent import CVStructurerAgent
 from app.api.schemas import ResumeAnalysis
 from app.config import settings
 from app.graph.state import GraphState
+from app.services.resume_cache import ResumeCacheService
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +19,21 @@ async def _publish(queue: asyncio.Queue, event: str, data: dict) -> None:
 
 async def cv_structurer_node(state: GraphState) -> Dict[str, Any]:
     queue = state.get("queue")
+    resume_text = state["resume_text"]
+
+    # 1. Check cache first
+    cached = ResumeCacheService.get(resume_text)
+    if cached:
+        cached_structured, cached_analysis = cached
+        await _publish(queue, "progress", {
+            "step": "resume_analysis", "progress": 20,
+            "message": "Estruturação de currículo recuperada do cache com sucesso.",
+        })
+        return {
+            "structured_resume": cached_structured,
+            "resume_analysis": cached_analysis,
+        }
+
     await _publish(queue, "progress", {
         "step": "resume_analysis", "progress": 5,
         "message": "Analisando e estruturando currículo...",
@@ -25,7 +41,7 @@ async def cv_structurer_node(state: GraphState) -> Dict[str, Any]:
 
     cv_agent = CVStructurerAgent()
     structured_resume = await asyncio.wait_for(
-        cv_agent.structure_cv(state["resume_text"]),
+        cv_agent.structure_cv(resume_text),
         timeout=settings.llm_timeout,
     )
 
@@ -61,6 +77,9 @@ async def cv_structurer_node(state: GraphState) -> Dict[str, Any]:
         formatting_issues=structured_resume.formatting_issues,
         ats_readability_score=85,
     )
+
+    # 2. Store in cache for subsequent runs
+    ResumeCacheService.set(resume_text, structured_resume, resume_analysis)
 
     await _publish(queue, "progress", {
         "step": "resume_analysis", "progress": 20,

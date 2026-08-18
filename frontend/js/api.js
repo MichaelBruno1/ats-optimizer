@@ -12,7 +12,7 @@ const api = {
    * @param {File}   resumeFile  - The resume file object
    * @param {Array}  jobs        - [{title, company?, description}]
    * @param {string} outputMode  - 'single' | 'per_job'
-   * @returns {Promise<{session_id, resume_analysis, job_analyses, optimizations}>}
+   * @returns {Promise<{session_id, resume_analysis, job_analyses, optimizations, experience_examples}>}
    */
   async analyze(resumeFile, jobs, outputMode = 'single') {
     const formData = new FormData();
@@ -31,6 +31,30 @@ const api = {
         const errData = await response.json();
         errMsg = errData.detail || errData.message || errMsg;
       } catch (_) { /* ignore parse error */ }
+      throw new Error(errMsg);
+    }
+
+    return response.json();
+  },
+
+  /**
+   * POST /api/v1/generate-pdf/{session_id}/{job_index}
+   * Request on-demand rendering of the PDF resume.
+   * @param {string} sessionId
+   * @param {number} jobIndex
+   * @returns {Promise<{status, download_url}>}
+   */
+  async generatePdf(sessionId, jobIndex = 0) {
+    const response = await fetch(`${BASE}/generate-pdf/${sessionId}/${jobIndex}`, {
+      method: 'POST',
+    });
+
+    if (!response.ok) {
+      let errMsg = `Erro ${response.status}`;
+      try {
+        const errData = await response.json();
+        errMsg = errData.detail || errData.message || errMsg;
+      } catch (_) { /* ignore */ }
       throw new Error(errMsg);
     }
 
@@ -112,7 +136,6 @@ const api = {
 
     // Generic onerror (connection lost / network)
     es.onerror = () => {
-      // If the browser is attempting to reconnect, let it do so without throwing a fatal error.
       if (es.readyState === EventSource.CONNECTING) {
         console.log('[api] SSE connection lost. Attempting to reconnect...');
         return;

@@ -157,7 +157,7 @@ async def cleanup_old_sessions() -> None:
             continue
 
         for session_dir in base_dir.iterdir():
-            if not session_dir.is_dir():
+            if not session_dir.is_dir() or session_dir.name.startswith("."):
                 continue
             try:
                 age = now - session_dir.stat().st_mtime
@@ -166,3 +166,9 @@ async def cleanup_old_sessions() -> None:
                     logger.info("Cleaned up expired session: %s", session_dir.name)
             except OSError as exc:
                 logger.warning("Failed to inspect/remove %s: %s", session_dir, exc)
+
+        try:
+            from app.services.resume_cache import ResumeCacheService
+            ResumeCacheService.cleanup_expired()
+        except Exception as exc:
+            logger.warning("Failed to cleanup expired resume cache: %s", exc)
